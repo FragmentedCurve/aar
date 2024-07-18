@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 600
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -43,132 +45,6 @@ struct {
 } mem = {0};
 
 #include "diskops.c"
-
-/*
-size
-FileSize(file* fp)
-{
-	size file_length;
-	size original_offset = ftell(fp);
-
-	fseek(fp, 0, SEEK_END);
-	file_length = ftell(fp);
-	fseek(fp, original_offset, SEEK_SET);
-
-	return file_length;
-}
-
-size
-BytesToBlocks(size nbytes)
-{
-	if (nbytes < AAR_AES_BLOCK_SIZE) {
-		return 1;
-	}
-
-	size offset = 0;
-	if (nbytes % AAR_AES_BLOCK_SIZE)
-		offset = AAR_AES_BLOCK_SIZE - (nbytes % AAR_AES_BLOCK_SIZE);
-	size blocks = (nbytes + offset) / AAR_AES_BLOCK_SIZE;;
-
-	return blocks;
-}
-
-size
-BytesToPadding(size nbytes)
-{
-	if (nbytes % AAR_AES_BLOCK_SIZE)
-		return AAR_AES_BLOCK_SIZE - (nbytes % AAR_AES_BLOCK_SIZE);
-	return 0;
-}
-
-static void
-InvertByteOrder(byte* buf, size blocksize, size blocks)
-{
-	for (size i = 0; i < blocks; i += blocksize) {
-		for (size j = 0; j < blocksize / 2; j++) {
-			byte x = buf[i + j];
-			buf[i + j] = buf[i  + blocksize - j - 1];
-			buf[i + blocksize - j - 1] = x;
-		}
-	}
-}
-
-static void
-DiskByteOrder(byte* buf, size blocksize, size blocks)
-{
-	int endian_check = 1;
-	int is_little = ((char*)&endian_check)[0] == 1;
-
-	if (is_little) {
-		// We're little endians, we gotta get big!
-		InvertByteOrder(buf, blocksize, blocks);
-	}
-}
-
-void
-ToDisk(byte* buf, size blocksize, size blocks)
-{
-	DiskByteOrder(buf, blocksize, blocks);
-}
-
-void
-FromDisk(byte* buf, size blocksize, size blocks)
-{
-	DiskByteOrder(buf, blocksize, blocks);
-}
-
-void
-ShiftFileDataDown(file* fp, size offset, size x0, size x1)
-{
-	size dx = x1 - x0;
-	size fsize = FileSize(fp);
-	
-	byte chunk[MegaBytes(1)];
-	size chunk_size = sizeof(chunk);
-
-	size focal = x1; // Assume we're shift towards the end of file.
-
-	
-	// TODO: Boundary checks
-	
-	if (x0 >= fsize) {
-		return;
-	}
-
-	if (x1 > fsize) {
-		x1 = fsize;
-	}
-
-	if (chunk_size > dx) {
-		chunk_size = dx;
-	}
-
-	for (size i = 1; i <= dx / chunk_size; i++) {
-		_ fseek(fp, x1 - (chunk_size * i), SEEK_SET);
-		_ fread(chunk, sizeof(byte), chunk_size, fp);
-		_ fseek(fp, x1 - (chunk_size * i) + offset, SEEK_SET);
-		_ fwrite(chunk, sizeof(byte), chunk_size, fp);
-	}
-
-	chunk_size = dx - (dx / chunk_size) * chunk_size;
-	if (chunk_size > 0) {
-		_ fseek(fp, x0, SEEK_SET);
-		_ fread(chunk, sizeof(byte), chunk_size, fp);
-		_ fseek(fp, x0 + offset, SEEK_SET);
-		_ fwrite(chunk, sizeof(byte), chunk_size, fp);
-	}
-
-	_ fseek(fp, x0, SEEK_SET);
-}
-
-void
-ShiftFileData(file* fp, int offset, size x0, size x1)
-{
-	if (offset > 0) {
-		ShiftFileDataDown(fp, offset, x0, x1);
-	}
-}
-*/
 
 void
 EncryptBlocks(byte* dest, size nblocks, aes_key key)
@@ -325,7 +201,7 @@ NewRecord(file* fp, string desc)
 
 	size file_length = FileSize(fp);
 	hdr.block_count = BytesToBlocks(file_length);
-	hdr.block_offset = hdr.block_count * AAR_AES_BLOCK_SIZE - file_length;
+	hdr.block_offset = hdr.block_count * AAR_BLOCK_SIZE - file_length;
 	hdr.desc_size = desc.length;
 
 	return hdr;
@@ -336,7 +212,7 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 {
 	// We require 2 extra blocks for potentially padding the min
 	// section and the desc section.
-	u8 buf[AAR_RECORD_MAX + 2 * AAR_AES_BLOCK_SIZE];
+	u8 buf[AAR_RECORD_MAX + 2 * AAR_BLOCK_SIZE];
 	u8* p = buf;
 	size desc_size = hdr.desc_size;
 	size min_bytes = AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN);
@@ -344,9 +220,9 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 
 	memset(buf, 0, sizeof(buf));
 	
-	ToDisk(&hdr.block_count, sizeof(hdr.block_count), 1);
-	ToDisk(&hdr.block_offset, sizeof(hdr.block_offset), 1);
-	ToDisk(&hdr.desc_size, sizeof(hdr.desc_size), 1);
+	ToDisk((byte*)&hdr.block_count, sizeof(hdr.block_count), 1);
+	ToDisk((byte*)&hdr.block_offset, sizeof(hdr.block_offset), 1);
+	ToDisk((byte*)&hdr.desc_size, sizeof(hdr.desc_size), 1);
 
 	memcpy(buf, &hdr.block_count, sizeof(hdr.block_count));
 	p += sizeof(hdr.block_count);
@@ -358,21 +234,22 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 	p = buf + min_bytes;
 	memcpy(p, hdr.desc, desc_size);
 
-	//EncryptBlocks(buf, AAR_RECORD_MAX / AAR_AES_BLOCK_SIZE, key);
+	EncryptBlocks(buf, AAR_BLOCKS(AAR_RECORD_MIN), key);
 
 	fwrite(buf, sizeof(u8), min_bytes + desc_bytes, fout);
+	fflush(fout);
 }
 
 void
 IngestFile(file* fin, file* fout, aes_key key)
 {
 	size n;
-	u8 buf[1024 * AAR_AES_BLOCK_SIZE] = {0};
+	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
 
 	while (n = fread(buf, sizeof(u8), sizeof(buf), fin), n > 0) {
 		size blocks = BytesToBlocks(n);
 		EncryptBlocks(buf, blocks, key);
-		fwrite(buf, sizeof(u8), blocks * AAR_AES_BLOCK_SIZE, fout);
+		fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fout);
 		memset(buf, 0, sizeof(buf));
 	}
 }
@@ -380,13 +257,13 @@ IngestFile(file* fin, file* fout, aes_key key)
 size
 FullRecordHeaderSize(aar_record_header hdr)
 {
-	return AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN) + hdr.desc + BytesToPadding(hdr.desc);
+	return AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN) + hdr.desc_size + BytesToPadding(hdr.desc_size);
 }
 
 size
 FullRecordSize(aar_record_header hdr)
 {
-	return FullRecordHeaderSize(hdr) + hdr.block_count * AAR_AES_BLOCK_SIZE;
+	return FullRecordHeaderSize(hdr) + hdr.block_count * AAR_BLOCK_SIZE;
 }
 
 aar_record_header
@@ -396,7 +273,7 @@ ReadRecord(file* archive_file, aes_key key)
 	
 	// Only one padding block is required here. We can ignore the
 	// padding at the end of desc.
-	u8 buf[AAR_RECORD_MAX + AAR_AES_BLOCK_SIZE];
+	u8 buf[AAR_RECORD_MAX + AAR_BLOCK_SIZE];
 
 	u8* p = buf;
 	size pos = ftell(archive_file);
@@ -409,7 +286,7 @@ ReadRecord(file* archive_file, aes_key key)
 	
 	// Read as much as possible. Garbage at the end will be ignored.
 	(void) fread(buf, sizeof(u8), sizeof(buf), archive_file);
-	//DecryptBlocks(buf, BytesToBlocks(AAR_RECORD_MIN), key);
+	DecryptBlocks(buf, AAR_BLOCKS(AAR_RECORD_MIN), key);
 
 	{ // Copy data into our record struct
 		memcpy(&hdr.block_count, p, sizeof(hdr.block_count));
@@ -423,17 +300,17 @@ ReadRecord(file* archive_file, aes_key key)
 	}
 
 	{ // Correct the data for endianness
-		FromDisk(&hdr.block_offset, sizeof(hdr.block_offset), 1);
-		FromDisk(&hdr.block_count, sizeof(hdr.block_count), 1);
+		FromDisk((byte*)&hdr.block_offset, sizeof(hdr.block_offset), 1);
+		FromDisk((byte*)&hdr.block_count, sizeof(hdr.block_count), 1);
 
 		// We need this before we can read in hdr.desc
-		FromDisk(&hdr.desc_size, sizeof(hdr.desc_size), 1);
+		FromDisk((byte*)&hdr.desc_size, sizeof(hdr.desc_size), 1);
 	}
 
 	// Copy only the desc data while ignoring the potential
 	// garbage at the end.
 	memcpy(hdr.desc, p, hdr.desc_size);
-	//DecryptBlocks(hdr.desc, BytesToBlocks(hdr.desc_size), key);
+	DecryptBlocks(hdr.desc, AAR_BLOCKS(hdr.desc_size), key);
 
 	// Set the cursor position as the end of record header/beginning of data
 	fseek(archive_file, pos + FullRecordHeaderSize(hdr), SEEK_SET);
@@ -470,7 +347,7 @@ SeekRecord(file* archive_file, size n)
 			fseek(archive_file, AAR_RECORD_MAX, SEEK_CUR);
 			return true;
 		}
-		fseek(archive_file, hdr.value.block_count * AAR_AES_BLOCK_SIZE, SEEK_CUR);
+		fseek(archive_file, hdr.value.block_count * AAR_BLOCK_SIZE, SEEK_CUR);
 	}
 
 	return false;
@@ -479,50 +356,52 @@ SeekRecord(file* archive_file, size n)
 void
 EncryptFile(file* fp, aes_key key)
 {
-	size n;
-	u8 buf[1024 * AAR_AES_BLOCK_SIZE] = {0};
-	aar_record_header hdr = NewRecord(fp, $(""));
-
-	ShiftFileData(fp, -2 /*AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN)*/, 0, FileSize(fp));
-	//WriteRecord(fp, hdr, key);
-	/*
-	rewind(fp);
+	int n;
+	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
+	aar_record_header hdr = NewRecord(fp, $("")); // TODO: Replace empty string with file name
+	
+	ShiftFileData(fp, AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN), 0, FileSize(fp));
+	WriteRecord(fp, hdr, key);
+	fflush(fp);
+	
 	while (n = fread(buf, sizeof(u8), sizeof(buf), fp), n > 0) {
 		(void) fseek(fp, -n, SEEK_CUR);
 		size blocks = BytesToBlocks(n);
-		//EncryptBlocks(buf, blocks, key);
-		(void) fwrite(buf, sizeof(u8), blocks * AAR_AES_BLOCK_SIZE, fp);
+		EncryptBlocks(buf, blocks, key);
+		(void) fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fp);
 		fflush(fp);
 		memset(buf, 0, sizeof(buf));
 	}
-	*/
 }
 
 void
 DecryptFile(file* fp, aes_key key)
 {
-	size n;
-	u8 buf[1024 * AAR_AES_BLOCK_SIZE] = {0};
+	// TODO: Ensure this doesn't need better error checking.
+	int n;
+	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
 
-	// TODO: Check for errors. File might be smaller than AAR_RECORD_MIN
-	if (fseek(fp, -AAR_RECORD_MIN, SEEK_END) != 0) {
+	if (FileSize(fp) < AAR_RECORD_MIN) {
 		Println$("Invalid file.");
 		return;
 	}
 	
 	aar_record_header hdr = ReadRecord(fp, key);
+	ShiftFileData(fp, -(AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN)), 0, FileSize(fp));
 	rewind(fp);
+
 	while (n = fread(buf, sizeof(u8), sizeof(buf), fp), n > 0) {
 		(void) fseek(fp, -n, SEEK_CUR);
 		size blocks = BytesToBlocks(n);
 		DecryptBlocks(buf, blocks, key);
-		(void) fwrite(buf, sizeof(u8), blocks * AAR_AES_BLOCK_SIZE, fp);
+		(void) fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fp);
 		fflush(fp);
 		memset(buf, 0, sizeof(buf));
 	}
-	Println$("%d", FileSize(fp) - AAR_RECORD_MIN - hdr.block_offset);
+	
 	int fd = fileno(fp);
-	(void) ftruncate(fd, FileSize(fp) - AAR_RECORD_MIN - hdr.block_offset);
+	(void) ftruncate(fd, FileSize(fp) - hdr.block_offset);
+	fflush(fp);
 }
 
 /*
@@ -720,7 +599,7 @@ Main(int argc, string* argv)
 		aar_record_header_ok hdr;
 		for (size i = 0; hdr = ReadRecordOK(archive_file, mem.key.raw), hdr.ok; i++) {
 			Println$("%d    %s", i, $$$(hdr.value.desc, hdr.value.desc_size));
-			fseek(archive_file, hdr.value.block_count * AAR_AES_BLOCK_SIZE, SEEK_CUR);
+			fseek(archive_file, hdr.value.block_count * AAR_BLOCK_SIZE, SEEK_CUR);
 		}
 	} else if (Equals$("extract", *argv)) {
 		shift(argc, argv);

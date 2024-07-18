@@ -1,3 +1,7 @@
+/*
+  
+ */
+
 #ifndef _AARFMT_H_
 #define _AARFMT_H_
 
@@ -9,7 +13,7 @@ typedef FILE file;
 
 #define AAR_KEY_SIZE        Bytes(32) // Byte size of the AES key
 #define AAR_BASE64_KEY_SIZE Bytes(44) // Size of a base64 encode AES key
-#define AAR_AES_BLOCK_SIZE  Bytes(16)
+#define AAR_BLOCK_SIZE      Bytes(16)
 
 #define sizeof_member(type, member) (sizeof(((type){}).member))
 
@@ -30,8 +34,8 @@ typedef struct {
 } aar_record_header;
 TYPEDEF_OK(aar_record_header);
 
-#define AAR_PADDED_BYTES(nbytes) (n + (AAR_AES_BLOCK_SIZE - (n % AAR_AES_BLOCK_SIZE)))
-#define AAR_BLOCKS(nbytes) (AAR_PADDED_BYTES(nbytes) / AAR_AES_BLOCK_SIZE)
+#define AAR_PADDING(nbytes) (nbytes + (AAR_BLOCK_SIZE - (nbytes % AAR_BLOCK_SIZE)))
+#define AAR_BLOCKS(nbytes) (AAR_PADDING(nbytes) / AAR_BLOCK_SIZE)
 
 #define AAR_MAGIC_VERSION      "AARv0000"   // Defines the version of the archive file format
 #define AAR_FILE_HEADER_SIZE   AAR_KEY_SIZE // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)

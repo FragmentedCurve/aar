@@ -16,14 +16,14 @@ FileSize(file* fp)
 size
 BytesToBlocks(size nbytes)
 {
-	if (nbytes < AAR_AES_BLOCK_SIZE) {
+	if (nbytes < AAR_BLOCK_SIZE) {
 		return 1;
 	}
 
 	size offset = 0;
-	if (nbytes % AAR_AES_BLOCK_SIZE)
-		offset = AAR_AES_BLOCK_SIZE - (nbytes % AAR_AES_BLOCK_SIZE);
-	size blocks = (nbytes + offset) / AAR_AES_BLOCK_SIZE;;
+	if (nbytes % AAR_BLOCK_SIZE)
+		offset = AAR_BLOCK_SIZE - (nbytes % AAR_BLOCK_SIZE);
+	size blocks = (nbytes + offset) / AAR_BLOCK_SIZE;;
 
 	return blocks;
 }
@@ -31,8 +31,8 @@ BytesToBlocks(size nbytes)
 size
 BytesToPadding(size nbytes)
 {
-	if (nbytes % AAR_AES_BLOCK_SIZE)
-		return AAR_AES_BLOCK_SIZE - (nbytes % AAR_AES_BLOCK_SIZE);
+	if (nbytes % AAR_BLOCK_SIZE)
+		return AAR_BLOCK_SIZE - (nbytes % AAR_BLOCK_SIZE);
 	return 0;
 }
 
@@ -74,16 +74,15 @@ FromDisk(byte* buf, size blocksize, size blocks)
 
 /*
 
-       brim              locus
-        ^                 ^  
-        |/------- dx ----\|
+         /------- dx ----\
        x0                x1
-  |.....|--|----|----|----|.....|
+  |.....|--|----|----|----|.....| <- EOF
                       \   /
                     chunk_size
 */
+
 void
-ShiftFileData(file* fp, long offset, size x0, size x1)
+ShiftFileData(file* fp, int offset, size x0, size x1)
 {
 	// Catch programming errors
 	assert(x1 > x0);
@@ -93,16 +92,17 @@ ShiftFileData(file* fp, long offset, size x0, size x1)
 	size fsize = FileSize(fp);
 	size dx = x1 - x0;
 
+	
 	// Nothing to do.
 	if (x0 >= fsize || x1 <= 0 || offset == 0) {
 		return;
 	}
 
 	// Data moved beyond x0 is truncated.
-	if (-offset > x0) {
-		x0 = -offset;
+	if ((int)(x0 + offset) < 0) {
+		x0 -= offset;
 	}
-	
+
 	if (x1 > fsize) {
 		x1 = fsize;
 	}
@@ -111,32 +111,46 @@ ShiftFileData(file* fp, long offset, size x0, size x1)
 		chunk_size = dx;
 	}
 
-	// If we're shifting to EOF, locus is x1. Otherwise, x0 is the
-	// locus.
-	size locus = (offset > 0) ? x1 : x0;
-	size brim = (offset > 0) ? x0 : x1;
-	
-	for (size i = 1; i <= dx / chunk_size; i++) {
-		Println$("chunk_size: %d  locus: %d   %d ", chunk_size, locus, locus - (chunk_size * i));
-		_ fseek(fp, locus - (chunk_size * i), SEEK_SET);
-		_ fread(chunk, sizeof(byte), chunk_size, fp);
-		_ fseek(fp, locus - (chunk_size * i) + offset, SEEK_SET);
-		_ fwrite(chunk, sizeof(byte), chunk_size, fp);
+	// Move full chunks
+	for (size i = 0; i < dx / chunk_size; i++) {
+		// Assume we're shifting down
+		size chunk_position = x1 - (chunk_size * (i + 1));
+
+		// Switch if we're shifting up
+		if (offset < 0) {
+			chunk_position = x0 + (chunk_size * i);
+		}
+
+		(void) fseek(fp, chunk_position, SEEK_SET);
+		(void) fread(chunk, sizeof(byte), chunk_size, fp);
+		(void) fseek(fp, chunk_position + offset, SEEK_SET);
+		(void) fwrite(chunk, sizeof(byte), chunk_size, fp);
 	}
 
+	// If there's a partial chunk, move it
 	chunk_size = dx - (dx / chunk_size) * chunk_size;
 	if (chunk_size > 0) {
-		_ fseek(fp, brim, SEEK_SET);
-		_ fread(chunk, sizeof(byte), chunk_size, fp);
-		_ fseek(fp, brim + offset, SEEK_SET);
-		_ fwrite(chunk, sizeof(byte), chunk_size, fp);
+		size chunk_position = x0;
+		if (offset < 0) {
+			chunk_position = x1 - chunk_size;
+		}
+
+		(void) fseek(fp, chunk_position, SEEK_SET);
+		(void) fread(chunk, sizeof(byte), chunk_size, fp);
+		(void) fseek(fp, chunk_position + offset, SEEK_SET);
+		(void) fwrite(chunk, sizeof(byte), chunk_size, fp);
 	}
+	
+	(void) fflush(fp);
 
 	// Removing trailing garbage if exists.
 	if (x1 == fsize && offset < 0) {
 		int fd = fileno(fp);
-		//_ ftruncate(fd, fsize + offset);
+		(void) ftruncate(fd, fsize + offset);
 	}
-	
-	_ fseek(fp, (offset > 0) ? x0 : x1, SEEK_SET);
+
+	(void) fflush(fp);
+
+	// Set pointer to a reasonable location
+	(void) fseek(fp, (offset > 0) ? x0 : x1, SEEK_SET);
 }
