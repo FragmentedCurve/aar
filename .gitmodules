@@ -1,0 +1,3 @@
+[submodule "contrib/aes256"]
+	path = contrib/aes256
+	url = git@github.com:ilvn/aes256.git
