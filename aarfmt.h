@@ -54,7 +54,8 @@ TYPEDEF_OK(aar_record_header);
 #define AAR_PADDING(nbytes) (nbytes + (nbytes % AAR_BLOCK_SIZE > 0) * (AAR_BLOCK_SIZE - (nbytes % AAR_BLOCK_SIZE)))
 #define AAR_BLOCKS(nbytes) (AAR_PADDING(nbytes) / AAR_BLOCK_SIZE)
 
-#define AAR_MAGIC_VERSION      "AARv0000"   // Defines the version of the archive file format
+// TODO: Make AAR_MAGIC_VERSION a block long versioning scheme.
+//#define AAR_MAGIC_VERSION      "AARv0000"   // Defines the version of the archive file format
 #define AAR_FILE_HEADER_SIZE   AAR_KEY_SIZE // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)
 
 #define AAR_RECORD_MIN							\
