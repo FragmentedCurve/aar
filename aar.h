@@ -18,8 +18,8 @@
              +----------------+
 */
 
-#ifndef _AARFMT_H_
-#define _AARFMT_H_
+#ifndef _AAR_H_
+#define _AAR_H_
 
 typedef FILE file;
 typedef u64 aar_checksum;
@@ -64,4 +64,4 @@ TYPEDEF_OK(aar_record_header);
 
 #define AAR_RECORD_MAX (AAR_RECORD_MIN + sizeof_member(aar_record_header, desc))
 
-#endif // _AARFMT_H_
+#endif // _AAR_H_
