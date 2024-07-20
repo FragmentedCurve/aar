@@ -1,4 +1,11 @@
-#include "typeok.h"
+int
+fclose_safe(file* fp)
+{
+	if (fp) {
+		return fclose(fp);
+	}
+	return 0;
+}
 
 size
 FileSize(file* fp)
@@ -11,29 +18,6 @@ FileSize(file* fp)
 	fseek(fp, original_offset, SEEK_SET);
 
 	return file_length;
-}
-
-size
-BytesToBlocks(size nbytes)
-{
-	if (nbytes < AAR_BLOCK_SIZE) {
-		return 1;
-	}
-
-	size offset = 0;
-	if (nbytes % AAR_BLOCK_SIZE)
-		offset = AAR_BLOCK_SIZE - (nbytes % AAR_BLOCK_SIZE);
-	size blocks = (nbytes + offset) / AAR_BLOCK_SIZE;;
-
-	return blocks;
-}
-
-size
-BytesToPadding(size nbytes)
-{
-	if (nbytes % AAR_BLOCK_SIZE)
-		return AAR_BLOCK_SIZE - (nbytes % AAR_BLOCK_SIZE);
-	return 0;
 }
 
 static void
@@ -145,8 +129,11 @@ ShiftFileData(file* fp, int offset, size x0, size x1)
 
 	// Removing trailing garbage if exists.
 	if (x1 == fsize && offset < 0) {
+		(void) TruncateFile(fp, fsize + offset);
+		/*
 		int fd = fileno(fp);
 		(void) ftruncate(fd, fsize + offset);
+		*/
 	}
 
 	(void) fflush(fp);

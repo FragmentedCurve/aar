@@ -1,35 +1,3 @@
-#define _XOPEN_SOURCE 600
-
-#include <stdio.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <assert.h>
-
-#include "typeok.h"
-#define NSTRINGS_MAIN
-#include "nstrings.h"
-#include "base64.h"
-
-#define BACK_TO_TABLES // Use pre-calculated tables for AES
-#include "contrib/aes256/aes256.h"
-
-#include "aarfmt.h"
-
-#define _ (void)
-
-/*
-  TODO: Maybe use error types.
-
-typedef const struct { string msg; int ok; } error;
-#define Error(m) ((error){m, 0})
-#define Error$(m) Error($(m))
-
-error ErrArchiveExists = Error$("Archive already exists.");
-error ErrInvalidKey    = Error$("Key isn't a valid aar AES key.");
-error ErrIncorrectKey  = Error$("The given AES key doesn't match the archive.");
-*/
-
 // Global memory regions
 struct {
 	struct {
@@ -39,16 +7,22 @@ struct {
 	} key;
 
 	struct {
-		string archive;               // Archive filename.
-		string key;                   // String object for mem.key.base64
+		string archive;  // Archive filename.
+		string key;      // String object for mem.key.base64
 	} stable;
 } mem = {0};
 
-#include "diskops.c"
+aar_checksum
+Checksum(aar_checksum state, u8 buf, size n)
+{
+	
+	return state;
+}
 
 void
 EncryptBlocks(byte* dest, size nblocks, aes_key key)
 {
+#ifndef _AAR_DEBUG_NOCRYPT
 	aes256_context_t ctx;
 	aes256_init(&ctx, (aes256_key_t*) &key);
 	for (size pass = 0; pass < AAR_AES_PASSES; pass++) {
@@ -57,11 +31,13 @@ EncryptBlocks(byte* dest, size nblocks, aes_key key)
 		}
 	}
 	aes256_done(&ctx);
+#endif
 }
 
 void
 DecryptBlocks(byte* dest, size nblocks, aes_key key)
 {
+#ifndef _AAR_DEBUG_NOCRYPT
 	aes256_context_t ctx;
 	aes256_init(&ctx, (aes256_key_t*) &key);
 	for (size pass = 0; pass < AAR_AES_PASSES; pass++) {
@@ -70,6 +46,7 @@ DecryptBlocks(byte* dest, size nblocks, aes_key key)
 		}
 	}
 	aes256_done(&ctx);
+#endif
 }
 
 aes_key_ok
@@ -129,7 +106,7 @@ ArchiveValidate(file* fp, aes_key given_key)
 		Println$("Failed to read key.");
 		return archive_key;
 	}
-	
+
 	DecryptBlocks((byte*) &archive_key.value, 2, given_key);
 	archive_key.ok = memcmp(&archive_key.value, &given_key, AAR_KEY_SIZE) == 0;
 
@@ -139,19 +116,12 @@ ArchiveValidate(file* fp, aes_key given_key)
 file*
 ArchiveOpen(string filename)
 {
-	file* result = NULL;
 	char path[filename.length + 1];
 
 	memset(path, 0, sizeof(path));
 	memcpy(path, filename.s, filename.length);
 
-	result = fopen(path, "r+");
-	if (!result) {
-		Println$("Failed to open archive file.");
-		return result;
-	}
-
-	return result;
+	return fopen(path, "r+");
 }
 
 file*
@@ -194,15 +164,15 @@ NewRecord(file* fp, string desc)
 {
 	aar_record_header hdr = {0};
 
-	if (desc.length >= AAR_PATH_MAX) {
-		desc.length = AAR_PATH_MAX;
+	if (desc.length >= AAR_DESC_MAX) {
+		desc.length = AAR_DESC_MAX;
 	}
 	memcpy(hdr.desc, desc.s, desc.length);
 
 	size file_length = FileSize(fp);
-	hdr.block_count = BytesToBlocks(file_length);
+	hdr.block_count = AAR_BLOCKS(file_length);
 	hdr.block_offset = hdr.block_count * AAR_BLOCK_SIZE - file_length;
-	hdr.desc_size = desc.length;
+	hdr.desc_length = desc.length;
 
 	return hdr;
 }
@@ -214,28 +184,28 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 	// section and the desc section.
 	u8 buf[AAR_RECORD_MAX + 2 * AAR_BLOCK_SIZE];
 	u8* p = buf;
-	size desc_size = hdr.desc_size;
-	size min_bytes = AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN);
-	size desc_bytes = desc_size + BytesToPadding(desc_size);
+	size desc_size = hdr.desc_length;
+	size min_bytes = AAR_PADDING(AAR_RECORD_MIN);
+	size desc_bytes = AAR_PADDING(desc_size);
 
 	memset(buf, 0, sizeof(buf));
-	
+
 	ToDisk((byte*)&hdr.block_count, sizeof(hdr.block_count), 1);
 	ToDisk((byte*)&hdr.block_offset, sizeof(hdr.block_offset), 1);
-	ToDisk((byte*)&hdr.desc_size, sizeof(hdr.desc_size), 1);
+	ToDisk((byte*)&hdr.desc_length, sizeof(hdr.desc_length), 1);
 
 	memcpy(buf, &hdr.block_count, sizeof(hdr.block_count));
 	p += sizeof(hdr.block_count);
 	memcpy(p, &hdr.block_offset, sizeof(hdr.block_offset));
 	p += sizeof(hdr.block_offset);
-	memcpy(p, &hdr.desc_size, sizeof(hdr.desc_size));
-	p += sizeof(hdr.desc_size);
+	memcpy(p, &hdr.desc_length, sizeof(hdr.desc_length));
+	p += sizeof(hdr.desc_length);
 
 	p = buf + min_bytes;
 	memcpy(p, hdr.desc, desc_size);
 
-	EncryptBlocks(buf, AAR_BLOCKS(AAR_RECORD_MIN), key);
-
+	EncryptBlocks(buf, AAR_BLOCKS(AAR_RECORD_MIN) + AAR_BLOCKS(desc_bytes), key);
+	
 	fwrite(buf, sizeof(u8), min_bytes + desc_bytes, fout);
 	fflush(fout);
 }
@@ -247,23 +217,11 @@ IngestFile(file* fin, file* fout, aes_key key)
 	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
 
 	while (n = fread(buf, sizeof(u8), sizeof(buf), fin), n > 0) {
-		size blocks = BytesToBlocks(n);
+		size blocks = AAR_BLOCKS(n);
 		EncryptBlocks(buf, blocks, key);
 		fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fout);
 		memset(buf, 0, sizeof(buf));
 	}
-}
-
-size
-FullRecordHeaderSize(aar_record_header hdr)
-{
-	return AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN) + hdr.desc_size + BytesToPadding(hdr.desc_size);
-}
-
-size
-FullRecordSize(aar_record_header hdr)
-{
-	return FullRecordHeaderSize(hdr) + hdr.block_count * AAR_BLOCK_SIZE;
 }
 
 aar_record_header
@@ -277,7 +235,7 @@ ReadRecord(file* archive_file, aes_key key)
 
 	u8* p = buf;
 	size pos = ftell(archive_file);
-	size min_bytes = AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN);
+	size min_bytes = AAR_PADDING(AAR_RECORD_MIN);
 
 	{ // Clear all buffers
 		memset(&hdr, 0, sizeof(hdr));
@@ -295,25 +253,25 @@ ReadRecord(file* archive_file, aes_key key)
 		memcpy(&hdr.block_offset, p, sizeof(hdr.block_offset));
 		p += sizeof(hdr.block_offset);
 
-		memcpy(&hdr.desc_size, p, sizeof(hdr.desc_size));
+		memcpy(&hdr.desc_length, p, sizeof(hdr.desc_length));
 		p = buf + min_bytes; // Jump to the start of hdr.desc
 	}
 
 	{ // Correct the data for endianness
 		FromDisk((byte*)&hdr.block_offset, sizeof(hdr.block_offset), 1);
 		FromDisk((byte*)&hdr.block_count, sizeof(hdr.block_count), 1);
-
+		
 		// We need this before we can read in hdr.desc
-		FromDisk((byte*)&hdr.desc_size, sizeof(hdr.desc_size), 1);
+		FromDisk((byte*)&hdr.desc_length, sizeof(hdr.desc_length), 1);
 	}
-
+	
 	// Copy only the desc data while ignoring the potential
 	// garbage at the end.
-	memcpy(hdr.desc, p, hdr.desc_size);
-	DecryptBlocks(hdr.desc, AAR_BLOCKS(hdr.desc_size), key);
+	memcpy(hdr.desc, p, AAR_PADDING(hdr.desc_length));
+	DecryptBlocks(hdr.desc, AAR_BLOCKS(hdr.desc_length), key);
 
 	// Set the cursor position as the end of record header/beginning of data
-	fseek(archive_file, pos + FullRecordHeaderSize(hdr), SEEK_SET);
+	(void) fseek(archive_file, pos + AAR_PADDING(AAR_RECORD_MIN) + AAR_PADDING(hdr.desc_length), SEEK_SET);
 	
 	return hdr;
 }
@@ -360,13 +318,13 @@ EncryptFile(file* fp, aes_key key)
 	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
 	aar_record_header hdr = NewRecord(fp, $("")); // TODO: Replace empty string with file name
 	
-	ShiftFileData(fp, AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN), 0, FileSize(fp));
+	ShiftFileData(fp, AAR_PADDING(AAR_RECORD_MIN), 0, FileSize(fp));
 	WriteRecord(fp, hdr, key);
 	fflush(fp);
 	
 	while (n = fread(buf, sizeof(u8), sizeof(buf), fp), n > 0) {
 		(void) fseek(fp, -n, SEEK_CUR);
-		size blocks = BytesToBlocks(n);
+		size blocks = AAR_BLOCKS(n);
 		EncryptBlocks(buf, blocks, key);
 		(void) fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fp);
 		fflush(fp);
@@ -385,20 +343,20 @@ DecryptFile(file* fp, aes_key key)
 		Println$("Invalid file.");
 		return;
 	}
-	
+
 	aar_record_header hdr = ReadRecord(fp, key);
-	ShiftFileData(fp, -(AAR_RECORD_MIN + BytesToPadding(AAR_RECORD_MIN)), 0, FileSize(fp));
+	ShiftFileData(fp, -AAR_PADDING(AAR_RECORD_MIN), 0, FileSize(fp));
 	rewind(fp);
 
 	while (n = fread(buf, sizeof(u8), sizeof(buf), fp), n > 0) {
 		(void) fseek(fp, -n, SEEK_CUR);
-		size blocks = BytesToBlocks(n);
+		size blocks = AAR_BLOCKS(n);
 		DecryptBlocks(buf, blocks, key);
 		(void) fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fp);
 		fflush(fp);
 		memset(buf, 0, sizeof(buf));
 	}
-	
+
 	int fd = fileno(fp);
 	(void) ftruncate(fd, FileSize(fp) - hdr.block_offset);
 	fflush(fp);
@@ -437,7 +395,7 @@ Usage(string cmd)
 		 "Commands:\n"
 		 "  new       Generate a random AES-256 bit key.\n"
 		 "  list      List all file names.\n"
-		 "  ingest    Insert a new file.\n"
+		 "  add       Add files to an archive.\n"
 		 "  extract   Extract all files.\n"
 		 "  encrypt   Encrypt a file without adding it to an archive.\n"
 		 "  decrypt   Decrypt a file that's independent from an archive.", cmd);
@@ -449,7 +407,7 @@ int
 Main(int argc, string* argv)
 {
 	aes_key_ok given_key = {0};
-	
+
 	if (argc <= 1) {
 		Usage(argv[0]);
 		exit(-1);
@@ -563,42 +521,53 @@ Main(int argc, string* argv)
 	// The rest of the commands require an opened archive.
 
 	file* archive_file = ArchiveOpen(mem.stable.archive);
+	if (!archive_file) {
+		Println$("Failed to open archive file.");
+		goto error;
+	}
 
 	if (!archive_file) {
-		exit(-1);
+		goto error;
 	}
-	
+
 	if (given_key = ArchiveValidate(archive_file, mem.key.raw), !given_key.ok) {
 		Println$("Key doesn't match archive's key.");
-		fclose(archive_file);
-		exit(-1);
+		goto error;
 	}
 
 	// Continue parsing
-	if (Equals$("ingest", *argv)) {
+	if (Equals$("add", *argv)) {
 		shift(argc, argv);
 
+		if (Equals(mem.stable.archive, argv[0])) {
+			Println$("An archive cannot ingest itself.");
+			goto error;
+		}
+		
 		if (argc < 2) {
 			Println$("Please supply a file to ingest and a description.");
-			exit(-1);
+			goto error;
 		}
 
 		fseek(archive_file, 0, SEEK_END);
 
 		file* ingest_file = fopen(argv[0].s, "r");
-		// TODO: Check if fopen failed.
+		if (!ingest_file) {
+			Println$("Failed to open '%s'.", argv[0]);
+			goto error;
+		}
 		aar_record_header hdr = NewRecord(ingest_file, argv[1]);
 		
 		WriteRecord(archive_file, hdr, mem.key.raw);
 		IngestFile(ingest_file, archive_file, mem.key.raw);
-		
-		fclose(ingest_file);
+
+		(void) fclose(ingest_file);
 	} else if (Equals$("list", *argv)) {
 		fseek(archive_file, AAR_KEY_SIZE, SEEK_SET);
 
 		aar_record_header_ok hdr;
 		for (size i = 0; hdr = ReadRecordOK(archive_file, mem.key.raw), hdr.ok; i++) {
-			Println$("%d    %s", i, $$$(hdr.value.desc, hdr.value.desc_size));
+			Println$("%d    %s", i, $$$(hdr.value.desc, hdr.value.desc_length));
 			fseek(archive_file, hdr.value.block_count * AAR_BLOCK_SIZE, SEEK_CUR);
 		}
 	} else if (Equals$("extract", *argv)) {
@@ -612,8 +581,13 @@ Main(int argc, string* argv)
 		}
 	} else {
 		Println$("Unknown command: '%s'", *argv);
+		goto error;
 	}
 
-	fclose(archive_file);
+
 	exit(0);
+	
+error:
+	(void) fclose_safe(archive_file);
+	exit(-1);
 }
