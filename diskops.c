@@ -1,3 +1,4 @@
+/* Call fclose if fp is not null, otherwise return 0. */
 int
 fclose_safe(file* fp)
 {
@@ -7,6 +8,7 @@ fclose_safe(file* fp)
 	return 0;
 }
 
+/* Return the byte length of a file. */
 size
 FileSize(file* fp)
 {
@@ -32,8 +34,12 @@ InvertByteOrder(byte* buf, size blocksize, size blocks)
 	}
 }
 
-static void
-DiskByteOrder(byte* buf, size blocksize, size blocks)
+/*
+  Convert endianness to big endian if we're on little endian
+  architecture. This is analogous to htons(3).
+ */
+void
+ToDisk(byte* buf, size blocksize, size blocks)
 {
 	int endian_check = 1;
 	int is_little = ((char*)&endian_check)[0] == 1;
@@ -44,32 +50,36 @@ DiskByteOrder(byte* buf, size blocksize, size blocks)
 	}
 }
 
-void
-ToDisk(byte* buf, size blocksize, size blocks)
-{
-	DiskByteOrder(buf, blocksize, blocks);
-}
-
+/*
+  Convert endianness to little endian if we're on little endian
+  architecture. This is analogous to ntohs(3).
+ */
 void
 FromDisk(byte* buf, size blocksize, size blocks)
 {
-	DiskByteOrder(buf, blocksize, blocks);
+	ToDisk(buf, blocksize, blocks);
 }
 
 /*
+  Shift an interval (x0, x1) of data within a file. If offset > 0, the
+  data is shifted downwards to EOF. Otherwise, the data is shifted
+  upward, towards the beginning of the file.
+
+  Diagram of data displaying variables when data is being shifted
+  downwards:
 
          /------- dx ----\
-       x0                x1
-  |.....|--|----|----|----|.....| <- EOF
-                      \   /
+       x0                x1       EOF
+  |.....|--|----|----|----|........|
+                     \    /
                     chunk_size
 */
-
 void
 ShiftFileData(file* fp, int offset, size x0, size x1)
 {
 	// Catch programming errors
 	assert(x1 > x0);
+	assert(fp);
 
 	byte chunk[MegaBytes(1)] = {0};
 	size chunk_size = sizeof(chunk);
@@ -125,15 +135,10 @@ ShiftFileData(file* fp, int offset, size x0, size x1)
 		(void) fwrite(chunk, sizeof(byte), chunk_size, fp);
 	}
 	
-	(void) fflush(fp);
-
 	// Removing trailing garbage if exists.
 	if (x1 == fsize && offset < 0) {
+		(void) fflush(fp);
 		(void) TruncateFile(fp, fsize + offset);
-		/*
-		int fd = fileno(fp);
-		(void) ftruncate(fd, fsize + offset);
-		*/
 	}
 
 	(void) fflush(fp);

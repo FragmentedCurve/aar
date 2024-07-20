@@ -18,7 +18,6 @@
              +----------------+
 */
 
-
 #ifndef _AARFMT_H_
 #define _AARFMT_H_
 
