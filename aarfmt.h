@@ -31,7 +31,7 @@ typedef u64 aar_checksum;
 #define AAR_BLOCK_SIZE      Bytes(16)
 #define AAR_CHECKSUM_SIZE   sizeof(checksum_t)
 
-#define sizeof_member(type, member) (sizeof(((type){}).member))
+#define sizeof_member(type, member) (sizeof(((type){0}).member))
 
 
 typedef struct {
