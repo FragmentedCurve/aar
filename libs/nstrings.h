@@ -132,10 +132,12 @@ Itoa(size_t number, char buf[32], size_t len)
 }
 
 int static
-Atoi()
+Atoi(string s)
 {
-	// TODO: Implement.
-	return 0;
+	// TODO: Reimplement without buf. Hacked for AAR
+	char buf[1024] = {0};
+	memcpy(buf, s.s, s.length);
+	return atoi(buf);
 }
 
 size_t static

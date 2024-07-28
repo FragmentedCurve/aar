@@ -37,7 +37,7 @@
 #include "contrib/aes256/aes256.h"
 
 // aar application files
-#include "aarfmt.h"
+#include "aar.h"
 #ifdef AAR_OS_POSIX
 #include "os_posix.c"
 #endif
