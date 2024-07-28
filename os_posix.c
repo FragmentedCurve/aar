@@ -2,7 +2,9 @@ bool
 TruncateFile(file* fp, size offset)
 {
 	int fd = fileno(fp);
-	return ftruncate(fd, offset) != -1;
+	bool result = ftruncate(fd, offset) != -1;
+	fflush(fp);
+	return result;
 }
 
 aes_key_ok

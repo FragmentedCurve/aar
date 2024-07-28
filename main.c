@@ -234,6 +234,8 @@ IngestFile(file* fin, file* fout, aes_key key)
 		fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fout);
 		memset(buf, 0, sizeof(buf));
 	}
+
+	// TODO: Append data checksum
 }
 
 aar_record_header_ok
@@ -252,14 +254,15 @@ ReadRecord(file* archive_file, aes_key key)
 
 	aar_checksum chk_hdr = 0;
 	aar_checksum chk_desc = 0;
-	
+
 	{ // Clear all buffers
 		memset(&hdr, 0, sizeof(hdr));
 		memset(buf, 0, sizeof(buf));
 	}
 
 	// Read as much as possible. Garbage at the end will be ignored.
-	if (fread(buf, sizeof(u8), sizeof(buf), archive_file) < AAR_RECORD_MIN) {
+	if (fread(buf, sizeof(u8), sizeof(buf), archive_file) < AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE)) {
+		// TODO: Return EOF error.
 		return result;
 	}
 	DecryptBlocks(buf, AAR_BLOCKS(min_bytes), key);
@@ -293,6 +296,7 @@ ReadRecord(file* archive_file, aes_key key)
 		_chk_hdr = Checksum(_chk_hdr, &hdr.desc_length, sizeof(hdr.desc_length));
 
 		if (chk_hdr != _chk_hdr) {
+			// TODO: Return corruption error.
 			return result;
 		}
 	}
@@ -309,12 +313,13 @@ ReadRecord(file* archive_file, aes_key key)
 		aar_checksum _chk_desc = Checksum(AAR_CHECKSUM_INIT, hdr.desc, hdr.desc_length);
 
 		if (chk_desc != _chk_desc && hdr.desc_length != 0) {
+			// TODO: Return corruption error.
 			return result;
 		}
 	}
 
 	// Set the cursor position as the end of record header/beginning of data
-	(void) fseek(archive_file, pos + min_bytes + AAR_PADDING(hdr.desc_length + AAR_CHECKSUM_SIZE), SEEK_SET);
+	(void) fseek(archive_file, pos + AAR_HDR_BYTES(hdr), SEEK_SET);
 
 	result.ok = 1;
 	result.value = hdr;
@@ -332,7 +337,7 @@ SeekRecord(file* archive_file, size n)
 			fseek(archive_file, -AAR_HDR_BYTES(hdr.value), SEEK_CUR);
 			return true;
 		}
-		fseek(archive_file, hdr.value.block_count * AAR_BLOCK_SIZE, SEEK_CUR);
+		fseek(archive_file, AAR_DATA_BYTES(hdr.value), SEEK_CUR);
 	}
 
 	return false;
@@ -395,26 +400,11 @@ DecryptFile(file* fp, aes_key key)
 	fflush(fp);
 }
 
-/*
 void
-Extract(file* archive_file, aes_key key)
+Extract(file* archive_file, size index, aes_key key)
 {
-	aar_record_hdr hdr = ReadRecord(archive_file, key);
-	file* fout = fopen();
+	// TODO: Implement me.
 }
-
-void
-ExtractAll(file* archive_file, aes_key key)
-{
-	
-}
-
-void
-ExtractRecords(file* archive_file, int* index, size n, aes_key key)
-{
-	
-}
-*/
 
 void
 Usage(string cmd)
@@ -429,8 +419,9 @@ Usage(string cmd)
 		 "  new       Generate a random AES-256 bit key.\n"
 		 "  list      List all file names.\n"
 		 "  add       Add files to an archive.\n"
-		 "  del       Delete a record.\n"
+		 "  delete    Delete a record.\n"
 		 "  extract   Extract all files.\n"
+		 "  validate  Check for file corruption.\n"
 		 "  encrypt   Encrypt a file without adding it to an archive.\n"
 		 "  decrypt   Decrypt a file that's independent from an archive.", cmd);
 }
@@ -574,12 +565,12 @@ Main(int argc, string* argv)
 		shift(argc, argv);
 
 		if (Equals(mem.stable.archive, argv[0])) {
-			Println$("An archive cannot ingest itself.");
+			Println$("Error! An archive cannot ingest itself.");
 			goto error;
 		}
 		
 		if (argc < 2) {
-			Println$("Please supply a file to ingest and a description.");
+			Println$("Error! Please supply a file to ingest and a description.");
 			goto error;
 		}
 
@@ -590,13 +581,15 @@ Main(int argc, string* argv)
 			Println$("Failed to open '%s'.", argv[0]);
 			goto error;
 		}
+
+		Println$("Ingesting '%s' from '%s'", argv[1], argv[0]);
 		aar_record_header hdr = NewRecord(ingest_file, argv[1]);
 		
 		WriteRecord(archive_file, hdr, mem.key.raw);
 		IngestFile(ingest_file, archive_file, mem.key.raw);
 
 		(void) fclose(ingest_file);
-	} else if (Equals$("del", *argv)) {
+	} else if (Equals$("delete", *argv)) {
 		shift(argc, argv);
 
 		for (size i = 0; i < argc; i++) {
@@ -629,7 +622,7 @@ Main(int argc, string* argv)
 		aar_record_header_ok hdr;
 		for (size i = 0; hdr = ReadRecord(archive_file, mem.key.raw), hdr.ok; i++) {
 			Println$("%d    %s", i, $$$(hdr.value.desc, hdr.value.desc_length));
-			fseek(archive_file, hdr.value.block_count * AAR_BLOCK_SIZE, SEEK_CUR);
+			fseek(archive_file, AAR_DATA_BYTES(hdr.value), SEEK_CUR);
 		}
 	} else if (Equals$("extract", *argv)) {
 		shift(argc, argv);

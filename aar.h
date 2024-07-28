@@ -65,13 +65,12 @@ TYPEDEF_OK(aar_record_header);
 
 
 #define AAR_PADDING(nbytes) ((nbytes) + ((nbytes) % AAR_BLOCK_SIZE > 0) * (AAR_BLOCK_SIZE - ((nbytes) % AAR_BLOCK_SIZE)))
-#define AAR_BLOCKS(nbytes) (AAR_PADDING(nbytes) / AAR_BLOCK_SIZE)
+#define AAR_BLOCKS(nbytes)  (AAR_PADDING(nbytes) / AAR_BLOCK_SIZE)
 
-#define AAR_HDR_BYTES(hdr) (AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE) + (((hdr).desc_length > 0) ? AAR_PADDING((hdr).desc_length + AAR_CHECKSUM_SIZE) : 0))
+#define AAR_HDR_BYTES(hdr)  (AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE) + (((hdr).desc_length > 0) ? AAR_PADDING((hdr).desc_length + AAR_CHECKSUM_SIZE) : 0))
 #define AAR_HDR_BLOCKS(hdr) (AAR_HDR_BYTES(hdr) / AAR_BLOCK_SIZE)
-
 #define AAR_DATA_BYTES(hdr) ((hdr).block_count * AAR_BLOCK_SIZE)
-//#define AAR_DATA_BLOCKS(hdr)
+#define AAR_REC_BYTES(hdr)  (AAR_HDR_BYTES(hdr) + AAR_DATA_BYTES(hdr))
 
 #endif // _AAR_H_
 
