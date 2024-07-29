@@ -183,10 +183,10 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 	}
 	
 	{ // Compute checksums
-		chk_hdr = Checksum(chk_hdr, &hdr.block_count, sizeof(hdr.block_count));
-		chk_hdr = Checksum(chk_hdr, &hdr.block_offset, sizeof(hdr.block_offset));
-		chk_hdr = Checksum(chk_hdr, &hdr.desc_length, sizeof(hdr.desc_length));
-		chk_desc = Checksum(chk_desc, hdr.desc, hdr.desc_length);
+		chk_hdr = Checksum(chk_hdr, (u8*)&hdr.block_count, sizeof(hdr.block_count));
+		chk_hdr = Checksum(chk_hdr, (u8*)&hdr.block_offset, sizeof(hdr.block_offset));
+		chk_hdr = Checksum(chk_hdr, (u8*)&hdr.desc_length, sizeof(hdr.desc_length));
+		chk_desc = Checksum(chk_desc, (u8*)hdr.desc, hdr.desc_length);
 
 		ToDisk((byte*)&chk_hdr, sizeof(chk_hdr), 1);
 		ToDisk((byte*)&chk_desc, sizeof(chk_desc), 1);
@@ -291,9 +291,9 @@ ReadRecord(file* archive_file, aes_key key)
 	}
 
 	{ // Check for corruption before reading hdr.desc
-		aar_checksum _chk_hdr = Checksum(AAR_CHECKSUM_INIT, &hdr.block_count, sizeof(hdr.block_count));
-		_chk_hdr = Checksum(_chk_hdr, &hdr.block_offset, sizeof(hdr.block_offset));
-		_chk_hdr = Checksum(_chk_hdr, &hdr.desc_length, sizeof(hdr.desc_length));
+		aar_checksum _chk_hdr = Checksum(AAR_CHECKSUM_INIT, (u8*) &hdr.block_count, sizeof(hdr.block_count));
+		_chk_hdr = Checksum(_chk_hdr, (u8*) &hdr.block_offset, sizeof(hdr.block_offset));
+		_chk_hdr = Checksum(_chk_hdr, (u8*) &hdr.desc_length, sizeof(hdr.desc_length));
 
 		if (chk_hdr != _chk_hdr) {
 			// TODO: Return corruption error.
