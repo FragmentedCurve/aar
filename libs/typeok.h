@@ -56,4 +56,7 @@ TYPEDEF_OK(size);
 #define MegaBytes(n) (KiloBytes(n)*1024)
 #define GigaBytes(n) (MegaBytes(n)*1024)
 
+// aar extensions
+typedef FILE file;
+
 #endif // _TYPEOK_H_

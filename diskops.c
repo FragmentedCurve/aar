@@ -89,7 +89,7 @@ ShiftFileData(file* fp, int offset, size x0, size x1)
 	size dx = x1 - x0;
 
 	bzero(chunk, chunk_size);
-	
+
 	// Nothing to do.
 	if (x0 >= fsize || x1 <= 0 || offset == 0) {
 		return;

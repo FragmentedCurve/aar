@@ -1,3 +1,5 @@
+typedef FILE file;
+
 // Global memory regions
 struct {
 	struct {
@@ -591,26 +593,37 @@ Main(int argc, string* argv)
 	if (Equals$("add", *argv)) {
 		shift(argc, argv);
 
+		string filepath, desc;
+
 		if (Equals(mem.stable.archive, argv[0])) {
 			Println$("Error! An archive cannot ingest itself.");
 			goto error;
 		}
 
-		if (argc < 2) {
+		if (argc < 1) {
 			Println$("Error! Please supply a file to ingest and a description.");
 			goto error;
+		} else {
+			filepath = argv[0];
+		}
+
+		if (argc >= 2) {
+			desc  = argv[1];
+		} else {
+			desc = argv[0];
 		}
 
 		fseek(archive_file, 0, SEEK_END);
 
-		file* ingest_file = fopen(argv[0].s, "r");
+		// WARNING: filepath.s is safe because it came from main's argv
+		file* ingest_file = fopen(filepath.s, "r");
 		if (!ingest_file) {
-			Println$("Failed to open '%s'.", argv[0]);
+			Println$("Failed to open '%s'.", filepath);
 			goto error;
 		}
 
-		Println$("Ingesting '%s' from '%s'", argv[1], argv[0]);
-		aar_record_header hdr = NewRecord(ingest_file, argv[1]);
+		Println$("Ingesting '%s' from '%s'", desc, filepath);
+		aar_record_header hdr = NewRecord(ingest_file, desc);
 		
 		WriteRecord(archive_file, hdr, mem.key.raw);
 		IngestFile(ingest_file, archive_file, mem.key.raw);

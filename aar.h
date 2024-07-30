@@ -21,8 +21,6 @@
 #ifndef _AAR_H_
 #define _AAR_H_
 
-typedef FILE file;
-
 #define AAR_DESC_MAX        1024      // Maximum length of a file path
 #define AAR_KEY_SIZE        Bytes(32) // Byte size of the AES key
 #define AAR_BASE64_KEY_SIZE Bytes(44) // Size of a base64 encode AES key
@@ -56,20 +54,33 @@ TYPEDEF_OK(aar_record_header);
 //#define AAR_MAGIC_VERSION      "AARv0000"   // Defines the version of the archive file format
 #define AAR_FILE_HEADER_SIZE   AAR_KEY_SIZE // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)
 
+// The absolute minimum byte length a record header could possibly be on disk.
 #define AAR_RECORD_MIN							\
 	(sizeof_member(aar_record_header, block_count)			\
 		+ sizeof_member(aar_record_header, block_offset)	\
 		+ sizeof_member(aar_record_header, desc_length))
 
+// The absolute maxiumum byte length a record header could possibly be.
 #define AAR_RECORD_MAX (AAR_RECORD_MIN + sizeof_member(aar_record_header, desc))
 
-
+// Byte length aligned to AAR_BLOCK_SIZE
 #define AAR_PADDING(nbytes) ((nbytes) + ((nbytes) % AAR_BLOCK_SIZE > 0) * (AAR_BLOCK_SIZE - ((nbytes) % AAR_BLOCK_SIZE)))
 #define AAR_BLOCKS(nbytes)  (AAR_PADDING(nbytes) / AAR_BLOCK_SIZE)
 
-#define AAR_HDR_BYTES(hdr)  (AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE) + (((hdr).desc_length > 0) ? AAR_PADDING((hdr).desc_length + AAR_CHECKSUM_SIZE) : 0))
+// The full byte length of a record's header that is written to disk.
+#define AAR_HDR_BYTES(hdr)						\
+	(AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE)		\
+		+ (((hdr).desc_length > 0)				\
+			? AAR_PADDING((hdr).desc_length + AAR_CHECKSUM_SIZE) \
+			: 0))
+
+// The full block length of a record's header that is written to disk.
 #define AAR_HDR_BLOCKS(hdr) (AAR_HDR_BYTES(hdr) / AAR_BLOCK_SIZE)
+
+// The full byte length of a record's data that's written to disk.
 #define AAR_DATA_BYTES(hdr) ((hdr).block_count * AAR_BLOCK_SIZE)
+
+// The entire record's byte length.
 #define AAR_REC_BYTES(hdr)  (AAR_HDR_BYTES(hdr) + AAR_DATA_BYTES(hdr))
 
 #endif // _AAR_H_
