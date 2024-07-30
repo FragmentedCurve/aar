@@ -73,6 +73,8 @@ FromDisk(byte* buf, size blocksize, size blocks)
   |.....|--|----|----|----|........|
                      \    /
                     chunk_size
+
+  WARNING: Not thread-safe.
 */
 void
 ShiftFileData(file* fp, int offset, size x0, size x1)
@@ -81,11 +83,12 @@ ShiftFileData(file* fp, int offset, size x0, size x1)
 	assert(x1 > x0);
 	assert(fp);
 
-	byte chunk[MegaBytes(1)] = {0};
+	static byte chunk[AAR_IOBUF];
 	size chunk_size = sizeof(chunk);
 	size fsize = FileSize(fp);
 	size dx = x1 - x0;
 
+	bzero(chunk, chunk_size);
 	
 	// Nothing to do.
 	if (x0 >= fsize || x1 <= 0 || offset == 0) {
@@ -134,7 +137,7 @@ ShiftFileData(file* fp, int offset, size x0, size x1)
 		(void) fseek(fp, chunk_position + offset, SEEK_SET);
 		(void) fwrite(chunk, sizeof(byte), chunk_size, fp);
 	}
-	
+
 	// Removing trailing garbage if exists.
 	if (x1 == fsize && offset < 0) {
 		(void) fflush(fp);

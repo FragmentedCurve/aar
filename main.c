@@ -11,12 +11,12 @@ struct {
 		string key;      // String object for mem.key.base64
 	} stable;
 } mem = {0};
-
+	
 aar_checksum
 Checksum(aar_checksum state, u8* buf, size buf_len)
 {
 	const u32 poly = 0xEDB88320;
-	
+
 	for (size i = 0; i < buf_len; i++) {
 		state ^= buf[i];
 		for (size bit = 0; bit < 8; bit++) {
@@ -118,8 +118,8 @@ ArchiveCreate(string filename, aes_key key)
 	file* fp;
 	char path[filename.length + 1];
 	aes_key encrypted_key;
-	
-	memset(path, 0, sizeof(path));
+
+	bzero(path, sizeof(path));
 	memcpy(path, filename.s, filename.length);
 
 	fp = fopen(path, "rb");
@@ -176,7 +176,7 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 	aar_checksum chk_hdr = AAR_CHECKSUM_INIT;
 	aar_checksum chk_desc = AAR_CHECKSUM_INIT;
 
-	memset(buf, 0, sizeof(buf));
+	bzero(buf, sizeof(buf));
 
 	if (hdr.desc_length == 0) {
 		desc_bytes = 0;
@@ -191,16 +191,16 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 		ToDisk((byte*)&chk_hdr, sizeof(chk_hdr), 1);
 		ToDisk((byte*)&chk_desc, sizeof(chk_desc), 1);
 	}
-	
+
 	{ // Copy desc first
 		memcpy(buf + min_bytes, hdr.desc, hdr.desc_length);
 		memcpy(buf + min_bytes + hdr.desc_length, &chk_desc, AAR_CHECKSUM_SIZE);
 	}
-	
+
 	ToDisk((byte*)&hdr.block_count, sizeof(hdr.block_count), 1);
 	ToDisk((byte*)&hdr.block_offset, sizeof(hdr.block_offset), 1);
 	ToDisk((byte*)&hdr.desc_length, sizeof(hdr.desc_length), 1);
-		
+
 	{ // Copy header data
 		u8* p = buf;
 
@@ -223,16 +223,18 @@ void
 IngestFile(file* fin, file* fout, aes_key key)
 {
 	size n;
-	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
+	size buf_size = AAR_IOBUF;
+	static u8 buf[AAR_IOBUF];
 	aar_checksum chk = AAR_CHECKSUM_INIT;
-	
-	while (n = fread(buf, sizeof(u8), sizeof(buf), fin), n > 0) {
+
+	bzero(buf, buf_size);
+
+	while (n = fread(buf, sizeof(u8), buf_size, fin), n > 0) {
 		chk = Checksum(chk, buf, n);
-		
 		size blocks = AAR_BLOCKS(n);
 		EncryptBlocks(buf, blocks, key);
 		fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fout);
-		memset(buf, 0, sizeof(buf));
+		bzero(buf, buf_size);
 	}
 
 	// TODO: Append data checksum
@@ -256,13 +258,12 @@ ReadRecord(file* archive_file, aes_key key)
 	aar_checksum chk_desc = 0;
 
 	{ // Clear all buffers
-		memset(&hdr, 0, sizeof(hdr));
-		memset(buf, 0, sizeof(buf));
+		bzero(&hdr, sizeof(hdr));
+		bzero(buf, sizeof(buf));
 	}
 
 	// Read as much as possible. Garbage at the end will be ignored.
 	if (fread(buf, sizeof(u8), sizeof(buf), archive_file) < AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE)) {
-		// TODO: Return EOF error.
 		return result;
 	}
 	DecryptBlocks(buf, AAR_BLOCKS(min_bytes), key);
@@ -296,7 +297,6 @@ ReadRecord(file* archive_file, aes_key key)
 		_chk_hdr = Checksum(_chk_hdr, (u8*) &hdr.desc_length, sizeof(hdr.desc_length));
 
 		if (chk_hdr != _chk_hdr) {
-			// TODO: Return corruption error.
 			return result;
 		}
 	}
@@ -313,7 +313,6 @@ ReadRecord(file* archive_file, aes_key key)
 		aar_checksum _chk_desc = Checksum(AAR_CHECKSUM_INIT, hdr.desc, hdr.desc_length);
 
 		if (chk_desc != _chk_desc && hdr.desc_length != 0) {
-			// TODO: Return corruption error.
 			return result;
 		}
 	}
@@ -343,33 +342,55 @@ SeekRecord(file* archive_file, size n)
 	return false;
 }
 
+
+/*
+  Encrypt a single file outside of an archive.
+
+  The file will become a record with desc length of 0.
+  
+  WARNING: This function uses a static buffer for IO. It's not thread
+  safe.
+*/
 void
 EncryptFile(file* fp, aes_key key)
 {
 	int n;
-	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
+	size buf_size = AAR_IOBUF;
+	static u8* buf[AAR_IOBUF];
 	aar_record_header hdr = NewRecord(fp, $("")); // TODO: Replace empty string with file name
-	
+
+	bzero(buf, buf_size);
+
 	ShiftFileData(fp, AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE), 0, FileSize(fp));
 	WriteRecord(fp, hdr, key);
 	fflush(fp);
 
-	while (n = fread(buf, sizeof(u8), sizeof(buf), fp), n > 0) {
+	while (n = fread(buf, sizeof(u8), buf_size, fp), n > 0) {
 		(void) fseek(fp, -n, SEEK_CUR);
 		size blocks = AAR_BLOCKS(n);
-		EncryptBlocks(buf, blocks, key);
+		EncryptBlocks((byte*)buf, blocks, key);
 		(void) fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fp);
 		fflush(fp);
-		memset(buf, 0, sizeof(buf));
+		bzero(buf, buf_size);
 	}
 }
 
+/*
+  Decrypt a single file that doesn't belong to an archive. Such files
+  were encrypted by EncryptFile().
+
+  WARNING: This function uses a static buffer for IO. It's not thread
+  safe.
+*/
 void
 DecryptFile(file* fp, aes_key key)
 {
 	// TODO: Ensure this doesn't need better error checking.
 	int n;
-	u8 buf[1024 * AAR_BLOCK_SIZE] = {0};
+	size buf_size = AAR_IOBUF;
+	static u8* buf[AAR_IOBUF];
+
+	bzero(buf, buf_size);
 
 	if (FileSize(fp) < AAR_RECORD_MIN) {
 		Println$("Invalid file.");
@@ -386,13 +407,13 @@ DecryptFile(file* fp, aes_key key)
 	ShiftFileData(fp, -AAR_PADDING(AAR_RECORD_MIN), 0, FileSize(fp));
 	rewind(fp);
 
-	while (n = fread(buf, sizeof(u8), sizeof(buf), fp), n > 0) {
+	while (n = fread(buf, sizeof(u8), buf_size, fp), n > 0) {
 		(void) fseek(fp, -n, SEEK_CUR);
 		size blocks = AAR_BLOCKS(n);
-		DecryptBlocks(buf, blocks, key);
+		DecryptBlocks((byte*)buf, blocks, key);
 		(void) fwrite(buf, sizeof(u8), blocks * AAR_BLOCK_SIZE, fp);
 		fflush(fp);
-		memset(buf, 0, sizeof(buf));
+		bzero(buf, buf_size);
 	}
 
 	int fd = fileno(fp);
@@ -478,6 +499,12 @@ Main(int argc, string* argv)
 		shift(argc, argv);
 	}
 
+	// No command given?
+	if (argc == 0) {
+		Println$("Give me something to do.");
+		exit(-1);
+	}
+	
 	// Parse command
 	if (Equals$("new", *argv)) {
 		// Generate a new key if one doesn't exist.
@@ -568,7 +595,7 @@ Main(int argc, string* argv)
 			Println$("Error! An archive cannot ingest itself.");
 			goto error;
 		}
-		
+
 		if (argc < 2) {
 			Println$("Error! Please supply a file to ingest and a description.");
 			goto error;
