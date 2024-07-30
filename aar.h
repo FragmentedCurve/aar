@@ -1,4 +1,7 @@
 /*
+
+  TODO: Update this diagram.
+
     BLock    /--- 16 Bytes ---\
              +----------------+ <- AES key
     0        |                |
@@ -50,10 +53,6 @@ typedef struct {
 } aar_record_header;
 TYPEDEF_OK(aar_record_header);
 
-// TODO: Make AAR_MAGIC_VERSION a block long versioning scheme.
-//#define AAR_MAGIC_VERSION      "AARv0000"   // Defines the version of the archive file format
-#define AAR_FILE_HEADER_SIZE   AAR_KEY_SIZE // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)
-
 // The absolute minimum byte length a record header could possibly be on disk.
 #define AAR_RECORD_MIN							\
 	(sizeof_member(aar_record_header, block_count)			\
@@ -78,10 +77,12 @@ TYPEDEF_OK(aar_record_header);
 #define AAR_HDR_BLOCKS(hdr) (AAR_HDR_BYTES(hdr) / AAR_BLOCK_SIZE)
 
 // The full byte length of a record's data that's written to disk.
-#define AAR_DATA_BYTES(hdr) ((hdr).block_count * AAR_BLOCK_SIZE)
+#define AAR_DATA_BYTES(hdr) (((hdr).block_count * AAR_BLOCK_SIZE) + AAR_PADDING(AAR_CHECKSUM_SIZE))
 
 // The entire record's byte length.
 #define AAR_REC_BYTES(hdr)  (AAR_HDR_BYTES(hdr) + AAR_DATA_BYTES(hdr))
 
-#endif // _AAR_H_
+#define AAR_MAGIC_VERSION    $("AARv0000")                             // Defines the version of the archive file format
+#define AAR_FILE_HEADER_SIZE (AAR_MAGIC_VERSION.length + AAR_KEY_SIZE) // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)
 
+#endif // _AAR_H_

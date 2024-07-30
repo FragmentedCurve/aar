@@ -108,7 +108,7 @@ ArchiveOpen(string filename)
 {
 	char path[filename.length + 1];
 
-	memset(path, 0, sizeof(path));
+	bzero(path, sizeof(path));
 	memcpy(path, filename.s, filename.length);
 
 	return fopen(path, "r+");
@@ -120,7 +120,9 @@ ArchiveCreate(string filename, aes_key key)
 	file* fp;
 	char path[filename.length + 1];
 	aes_key encrypted_key;
+	u8 buf[AAR_FILE_HEADER_SIZE];
 
+	bzero(buf, AAR_FILE_HEADER_SIZE);
 	bzero(path, sizeof(path));
 	memcpy(path, filename.s, filename.length);
 
@@ -183,16 +185,16 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 	if (hdr.desc_length == 0) {
 		desc_bytes = 0;
 	}
-	
+
 	{ // Compute checksums
 		chk_hdr = Checksum(chk_hdr, (u8*)&hdr.block_count, sizeof(hdr.block_count));
 		chk_hdr = Checksum(chk_hdr, (u8*)&hdr.block_offset, sizeof(hdr.block_offset));
 		chk_hdr = Checksum(chk_hdr, (u8*)&hdr.desc_length, sizeof(hdr.desc_length));
 		chk_desc = Checksum(chk_desc, (u8*)hdr.desc, hdr.desc_length);
-
-		ToDisk((byte*)&chk_hdr, sizeof(chk_hdr), 1);
-		ToDisk((byte*)&chk_desc, sizeof(chk_desc), 1);
 	}
+
+	ToDisk((byte*)&chk_hdr, sizeof(chk_hdr), 1);
+	ToDisk((byte*)&chk_desc, sizeof(chk_desc), 1);
 
 	{ // Copy desc first
 		memcpy(buf + min_bytes, hdr.desc, hdr.desc_length);
@@ -214,7 +216,7 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 		p += sizeof(hdr.desc_length);
 		memcpy(p, &chk_hdr, AAR_CHECKSUM_SIZE);
 	}
-	
+
 	EncryptBlocks(buf, AAR_BLOCKS(min_bytes + desc_bytes), key);
 
 	fwrite(buf, sizeof(u8), min_bytes + desc_bytes, fout);
@@ -239,7 +241,11 @@ IngestFile(file* fin, file* fout, aes_key key)
 		bzero(buf, buf_size);
 	}
 
-	// TODO: Append data checksum
+	ToDisk((byte*)&chk, sizeof(chk), 1);
+	memcpy(buf, &chk, sizeof(chk));
+	EncryptBlocks(buf, AAR_BLOCKS(sizeof(chk)), key);
+	fwrite(buf, sizeof(u8), AAR_PADDING(sizeof(chk)), fout);
+	fflush(fout);
 }
 
 aar_record_header_ok
@@ -360,6 +366,7 @@ EncryptFile(file* fp, aes_key key)
 	size buf_size = AAR_IOBUF;
 	static u8* buf[AAR_IOBUF];
 	aar_record_header hdr = NewRecord(fp, $("")); // TODO: Replace empty string with file name
+	aar_checksum chk = AAR_CHECKSUM_INIT;
 
 	bzero(buf, buf_size);
 
@@ -368,6 +375,7 @@ EncryptFile(file* fp, aes_key key)
 	fflush(fp);
 
 	while (n = fread(buf, sizeof(u8), buf_size, fp), n > 0) {
+		chk = Checksum(chk, (byte*) buf, n);
 		(void) fseek(fp, -n, SEEK_CUR);
 		size blocks = AAR_BLOCKS(n);
 		EncryptBlocks((byte*)buf, blocks, key);
@@ -375,6 +383,12 @@ EncryptFile(file* fp, aes_key key)
 		fflush(fp);
 		bzero(buf, buf_size);
 	}
+
+	ToDisk((byte*)&chk, sizeof(chk), 1);
+	memcpy(buf, &chk, sizeof(chk));
+	EncryptBlocks((byte*)buf, AAR_BLOCKS(sizeof(chk)), key);
+	fwrite(buf, sizeof(u8), AAR_PADDING(sizeof(chk)), fp);
+	fflush(fp);
 }
 
 /*
@@ -418,8 +432,10 @@ DecryptFile(file* fp, aes_key key)
 		bzero(buf, buf_size);
 	}
 
+	// TODO: Check checksum.
+
 	int fd = fileno(fp);
-	(void) ftruncate(fd, FileSize(fp) - hdr.block_offset);
+	(void) ftruncate(fd, FileSize(fp) - hdr.block_offset - AAR_PADDING(AAR_CHECKSUM_SIZE));
 	fflush(fp);
 }
 

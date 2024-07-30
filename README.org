@@ -1,0 +1,15 @@
+#+TITLE: AAR README
+#+AUTHOR: Paco Pascal
+#+DATE: July 30, 2024
+
+* Description
+
+AAR is a simple tool for archiving small files with AES
+cryptography. It's intentionally ignorant of the operating system and
+file system. I built it to archive and backup SSH and GnuPG keys
+outside of my traditional system backups.
+
+* Obvious Improvements to be Done
+
+- Prevent leaking the key from the process list, `ps -ef`.
+- Copy-on-write to avoid potentially damaging the archive.
