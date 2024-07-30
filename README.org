@@ -13,3 +13,5 @@ outside of my traditional system backups.
 
 - Prevent leaking the key from the process list, `ps -ef`.
 - Copy-on-write to avoid potentially damaging the archive.
+- Switch the AES implementation to libtomcrypt.
+

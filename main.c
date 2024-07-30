@@ -455,14 +455,17 @@ Usage(string cmd)
 		 "  -a  --archive=FILE  AAR archive filename.\n\n"
 
 		 "Commands:\n"
-		 "  new       Generate a random AES-256 bit key.\n"
-		 "  list      List all file names.\n"
-		 "  add       Add files to an archive.\n"
-		 "  delete    Delete a record.\n"
-		 "  extract   Extract all files.\n"
-		 "  validate  Check for file corruption.\n"
-		 "  encrypt   Encrypt a file without adding it to an archive.\n"
-		 "  decrypt   Decrypt a file that's independent from an archive.", cmd);
+		 "  new          Generate a random AES-256 bit key.\n"
+		 "  list         List all file names.\n"
+		 "  add          Add files to an archive.\n"
+		 "  delete       Delete a record.\n"
+		 "  extract      Extract a single record.\n"
+		 "  extract-all  Extract all records.\n"
+		 "  split        Divide the archive's records into individually encrypted files.\n"
+		 "  validate     Check for file corruption.\n"
+		 "  rename       Change the description.\n"
+		 "  encrypt      Encrypt a file without adding it to an archive.\n"
+		 "  decrypt      Decrypt a file that's independent from an archive.", cmd);
 }
 
 #define shift(argc, argv) do { --argc; ++argv; } while(0);
