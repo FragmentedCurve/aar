@@ -25,11 +25,14 @@ FileSize(file* fp)
 static void
 InvertByteOrder(byte* buf, size blocksize, size blocks)
 {
-	for (size i = 0; i < blocks; i += blocksize) {
-		for (size j = 0; j < blocksize / 2; j++) {
-			byte x = buf[i + j];
-			buf[i + j] = buf[i  + blocksize - j - 1];
-			buf[i + blocksize - j - 1] = x;
+	while (blocks--) {
+		byte* end = buf + blocksize - 1;
+		while (buf < end) {
+			// Swap
+			*buf ^= *end;
+			*end ^= *buf;
+			*buf ^= *end;
+			buf++, end--;
 		}
 	}
 }
