@@ -46,10 +46,10 @@ TYPEDEF_OK(aes_key);
 
 // AAR File Format
 typedef struct {
-	u64          block_count;        // Quantity of data blocks
-	u64          block_offset;       // Byte difference between encrypted blocks and decrypted data
-	u64          desc_length;        // Byte length of desc data. Must be <= AAR_MAX_PATH
-	u8           desc[AAR_DESC_MAX]; // File path/description
+	u64 block_count;        // Quantity of data blocks
+	u64 block_offset;       // Byte difference between encrypted blocks and decrypted data
+	u64 desc_length;        // Byte length of desc data. Must be <= AAR_MAX_PATH
+	u8  desc[AAR_DESC_MAX]; // File path/description
 } aar_record_header;
 TYPEDEF_OK(aar_record_header);
 
@@ -63,7 +63,10 @@ TYPEDEF_OK(aar_record_header);
 #define AAR_RECORD_MAX (AAR_RECORD_MIN + sizeof_member(aar_record_header, desc))
 
 // Byte length aligned to AAR_BLOCK_SIZE
-#define AAR_PADDING(nbytes) ((nbytes) + ((nbytes) % AAR_BLOCK_SIZE > 0) * (AAR_BLOCK_SIZE - ((nbytes) % AAR_BLOCK_SIZE)))
+#define AAR_PADDING(nbytes)						\
+	((nbytes)							\
+		+ ((nbytes) % AAR_BLOCK_SIZE > 0)			\
+		* (AAR_BLOCK_SIZE - ((nbytes) % AAR_BLOCK_SIZE)))
 #define AAR_BLOCKS(nbytes)  (AAR_PADDING(nbytes) / AAR_BLOCK_SIZE)
 
 // The full byte length of a record's header that is written to disk.
