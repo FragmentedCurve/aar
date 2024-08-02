@@ -42,7 +42,7 @@ typedef struct {
 TYPEDEF_OK(aes_key);
 
 // Number of encryption passes
-#define AAR_AES_PASSES 1
+#define AAR_CRYPT_PASSES 1
 
 // AAR File Format
 typedef struct {
