@@ -42,14 +42,14 @@ InvertByteOrder(byte* buf, size blocksize, size blocks)
   architecture. This is analogous to htons(3).
  */
 void
-ToDisk(byte* buf, size blocksize, size blocks)
+ToDisk(void* buf, size blocksize, size blocks)
 {
 	int endian_check = 1;
-	int is_little = ((char*)&endian_check)[0] == 1;
+	int is_little = ((byte*)&endian_check)[0] == 1;
 
 	if (is_little) {
 		// We're little endians, we gotta get big!
-		InvertByteOrder(buf, blocksize, blocks);
+		InvertByteOrder((byte*)buf, blocksize, blocks);
 	}
 }
 
@@ -58,7 +58,7 @@ ToDisk(byte* buf, size blocksize, size blocks)
   architecture. This is analogous to ntohs(3).
  */
 void
-FromDisk(byte* buf, size blocksize, size blocks)
+FromDisk(void* buf, size blocksize, size blocks)
 {
 	ToDisk(buf, blocksize, blocks);
 }

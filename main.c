@@ -13,7 +13,7 @@ struct {
 		string key;      // String object for mem.key.base64
 	} stable;
 } mem = {0};
-	
+
 aar_checksum
 Checksum(aar_checksum state, u8* buf, size buf_len)
 {
@@ -193,17 +193,17 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 		chk_desc = Checksum(chk_desc, (u8*)hdr.desc, hdr.desc_length);
 	}
 
-	ToDisk((byte*)&chk_hdr, sizeof(chk_hdr), 1);
-	ToDisk((byte*)&chk_desc, sizeof(chk_desc), 1);
+	ToDisk(&chk_hdr, sizeof(chk_hdr), 1);
+	ToDisk(&chk_desc, sizeof(chk_desc), 1);
 
 	{ // Copy desc first
 		memcpy(buf + min_bytes, hdr.desc, hdr.desc_length);
 		memcpy(buf + min_bytes + hdr.desc_length, &chk_desc, AAR_CHECKSUM_SIZE);
 	}
 
-	ToDisk((byte*)&hdr.block_count, sizeof(hdr.block_count), 1);
-	ToDisk((byte*)&hdr.block_offset, sizeof(hdr.block_offset), 1);
-	ToDisk((byte*)&hdr.desc_length, sizeof(hdr.desc_length), 1);
+	ToDisk(&hdr.block_count, sizeof(hdr.block_count), 1);
+	ToDisk(&hdr.block_offset, sizeof(hdr.block_offset), 1);
+	ToDisk(&hdr.desc_length, sizeof(hdr.desc_length), 1);
 
 	{ // Copy header data
 		u8* p = buf;
@@ -241,7 +241,7 @@ IngestFile(file* fin, file* fout, aes_key key)
 		bzero(buf, buf_size);
 	}
 
-	ToDisk((byte*)&chk, sizeof(chk), 1);
+	ToDisk(&chk, sizeof(chk), 1);
 	memcpy(buf, &chk, sizeof(chk));
 	EncryptBlocks(buf, AAR_BLOCKS(sizeof(chk)), key);
 	fwrite(buf, sizeof(u8), AAR_PADDING(sizeof(chk)), fout);
@@ -291,12 +291,12 @@ ReadRecord(file* archive_file, aes_key key)
 	}
 
 	{ // Correct the data for endianness
-		FromDisk((byte*)&chk_hdr, AAR_CHECKSUM_SIZE, 1);
-		FromDisk((byte*)&hdr.block_offset, sizeof(hdr.block_offset), 1);
-		FromDisk((byte*)&hdr.block_count, sizeof(hdr.block_count), 1);
+		FromDisk(&chk_hdr, AAR_CHECKSUM_SIZE, 1);
+		FromDisk(&hdr.block_offset, sizeof(hdr.block_offset), 1);
+		FromDisk(&hdr.block_count, sizeof(hdr.block_count), 1);
 		
 		// We need this before we can read in hdr.desc
-		FromDisk((byte*)&hdr.desc_length, sizeof(hdr.desc_length), 1);
+		FromDisk(&hdr.desc_length, sizeof(hdr.desc_length), 1);
 	}
 
 	{ // Check for corruption before reading hdr.desc
@@ -311,7 +311,7 @@ ReadRecord(file* archive_file, aes_key key)
 
 	DecryptBlocks(p, AAR_BLOCKS(hdr.desc_length + AAR_CHECKSUM_SIZE), key);
 	memcpy(&chk_desc, p + hdr.desc_length, AAR_CHECKSUM_SIZE);
-	FromDisk((byte*)&chk_desc, AAR_CHECKSUM_SIZE, 1);
+	FromDisk(&chk_desc, AAR_CHECKSUM_SIZE, 1);
 
 	// Copy only the desc data while ignoring the potential
 	// garbage at the end.
@@ -384,9 +384,9 @@ EncryptFile(file* fp, aes_key key)
 		bzero(buf, buf_size);
 	}
 
-	ToDisk((byte*)&chk, sizeof(chk), 1);
+	ToDisk(&chk, sizeof(chk), 1);
 	memcpy(buf, &chk, sizeof(chk));
-	EncryptBlocks((byte*)buf, AAR_BLOCKS(sizeof(chk)), key);
+	EncryptBlocks(buf, AAR_BLOCKS(sizeof(chk)), key);
 	fwrite(buf, sizeof(u8), AAR_PADDING(sizeof(chk)), fp);
 	fflush(fp);
 }
