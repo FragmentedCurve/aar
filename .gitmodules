@@ -1,3 +1,7 @@
 [submodule "contrib/aes256"]
 	path = contrib/aes256
 	url = git@github.com:ilvn/aes256.git
+[submodule "contrib/libtomcrypt"]
+	path = contrib/libtomcrypt
+	url = https://github.com/libtom/libtomcrypt.git
+	branch = 7e7eb695d581782f04b24dc444cbfde86af59853

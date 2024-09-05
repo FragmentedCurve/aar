@@ -1,5 +1,3 @@
-typedef FILE file;
-
 // Global memory regions
 struct {
 	struct {
@@ -34,10 +32,11 @@ Checksum(aar_checksum state, u8* buf, size buf_len)
 }
 
 void
-EncryptBlocks(byte* dest, size nblocks, aes_key key)
+EncryptBlocks(void* _dest, size nblocks, aes_key key)
 {
 #ifndef _AAR_DEBUG_NOCRYPT
 	aes256_context_t ctx;
+	byte* dest = _dest;
 	aes256_init(&ctx, (aes256_key_t*) &key);
 	for (size pass = 0; pass < AAR_CRYPT_PASSES; pass++) {
 		for (size i = 0; i < nblocks; i++) {
@@ -49,10 +48,11 @@ EncryptBlocks(byte* dest, size nblocks, aes_key key)
 }
 
 void
-DecryptBlocks(byte* dest, size nblocks, aes_key key)
+DecryptBlocks(void* _dest, size nblocks, aes_key key)
 {
 #ifndef _AAR_DEBUG_NOCRYPT
 	aes256_context_t ctx;
+	byte* dest = _dest;
 	aes256_init(&ctx, (aes256_key_t*) &key);
 	for (size pass = 0; pass < AAR_CRYPT_PASSES; pass++) {
 		for (size i = 0; i < nblocks; i++) {
