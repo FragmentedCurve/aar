@@ -7,6 +7,8 @@ AAR_CONF?= AAR_OS_POSIX AAR_CRYPT_LIBTOM
 ${v}=
 .endfor
 
+${PROG}: git-submodules
+
 CFLAGS+= -std=c99 -pedantic -I contrib/libtomcrypt/src/headers ${AAR_CONF:@cfg@-D${cfg}@}
 # Debug build
 .ifdef _AAR_DEBUG_NOCRYPT
@@ -32,5 +34,10 @@ clean-contrib:
 	make -C contrib/aes256/ clean
 
 distclean: clean clean-contrib
+
+
+git-submodules:
+	git submodule init
+	git submodule update
 
 .include <bsd.prog.mk>
