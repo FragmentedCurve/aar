@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2024 Paco Pascal <me@pacopascal.com>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
 // Global memory regions
 struct {
 	struct {
@@ -302,12 +318,12 @@ ReadRecord(file* archive_file, aes_key key)
 }
 
 bool
-SeekRecord(file* archive_file, size n)
+SeekRecord(file* archive_file, size n, aes_key key)
 {
 	aar_record_header_ok hdr;
 
 	fseek(archive_file, AAR_FILE_HEADER_SIZE, SEEK_SET);
-	for (size i = 0; hdr = ReadRecord(archive_file, mem.key.raw), hdr.ok; i++) {
+	for (size i = 0; hdr = ReadRecord(archive_file, key), hdr.ok; i++) {
 		if (i == n) {
 			fseek(archive_file, -AAR_HDR_BYTES(hdr.value), SEEK_CUR);
 			return true;
@@ -622,7 +638,7 @@ Main(int argc, string* argv)
 		for (size i = 0; i < argc; i++) {
 			size index = Atoi(argv[i]) - i;
 			
-			if (SeekRecord(archive_file, index)) {
+			if (SeekRecord(archive_file, index, mem.key.raw)) {
 				aar_record_header_ok _hdr = ReadRecord(archive_file, mem.key.raw);
 				if (!_hdr.ok) {
 					Println$("Error! Record index '%s' is corrupt. Aborting...", argv[i]);
@@ -657,15 +673,70 @@ Main(int argc, string* argv)
 		// TODO: Extract only selected files.
 		
 		aar_record_header_ok hdr;
-		for (size i = 0; hdr = ReadRecord(archive_file, mem.key.raw), hdr.ok; i++) {
-			
+		for (size i = 0; i < argc; i++) {
+			size index = Atoi(argv[i]);
+			aar_record_header_ok _hdr;
+			if (SeekRecord(archive_file, index, mem.key.raw) && (_hdr = ReadRecord(archive_file, mem.key.raw), _hdr.ok)) {
+				string desc = $$$(_hdr.value.desc, _hdr.value.desc_length);
+
+// TODO: Finish extracting
+				// record. Create a new file with the
+				// name desc and decrypt the data into
+				// the file.
+				
+				Println$("Extracting %s....", desc);
+			}
 		}
+	} else if (Equals$("rename", *argv)) {
+		shift(argc, argv);
+
+		if (argc < 2) {
+			Println$("Supply a record number and new record description.");
+			goto error;
+		}
+
+		size index = Atoi(*argv);
+		Println$("index: %d", index);
+		if (!SeekRecord(archive_file, index, mem.key.raw)) {
+			Println$("Record '%s' doesn't exist.", *argv);
+			goto error;
+		}
+
+		size pos = ftell(archive_file);
+		aar_record_header_ok _hdr = ReadRecord(archive_file, mem.key.raw);
+		if (!_hdr.ok) {
+			Println$("Record '%d' is corrupted.", index);
+			goto error;
+		}
+
+		aar_record_header hdr = _hdr.value;
+		aar_record_header new_hdr = hdr;
+		memcpy(new_hdr.desc, argv[1].s, argv[1].length);
+		new_hdr.desc_length = argv[1].length;
+
+		ShiftFileData(
+			archive_file,
+			AAR_HDR_BYTES(new_hdr) - AAR_HDR_BYTES(hdr),
+			pos + AAR_HDR_BYTES(hdr),
+			FileSize(archive_file));
+
+		(void) fseek(archive_file, pos, SEEK_SET);
+		WriteRecord(archive_file, new_hdr, mem.key.raw);
 	} else {
 		Println$("Unknown command: '%s'", *argv);
 		goto error;
 	}
 
 
+	/*
+	  TODO: Implement the following commands:
+	  	    - extract      Extract a single record.
+		    - extract-all  Extract all records.
+		    - split        Divide the archive's records into individually encrypted files.
+		    - validate     Check for file corruption.
+	*/
+
+	(void) fclose_safe(archive_file);
 	exit(0);
 	
 error:

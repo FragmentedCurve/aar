@@ -24,7 +24,7 @@ make
 On another POSIX compliant platform,
 
 #+BEGIN_EXAMPLE
-cc -o aar -D AAR_OS_POSIX build.c contrib/aes256/aes256.c
+cc -o aar -D AAR_OS_POSIX build.c
 #+END_EXAMPLE
 
 * Usage

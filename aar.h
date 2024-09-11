@@ -1,4 +1,20 @@
 /*
+ * Copyright (c) 2024 Paco Pascal <me@pacopascal.com>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
 
   TODO: Update this diagram.
 
@@ -85,7 +101,10 @@ TYPEDEF_OK(aar_record_header);
 // The entire record's byte length.
 #define AAR_REC_BYTES(hdr)  (AAR_HDR_BYTES(hdr) + AAR_DATA_BYTES(hdr))
 
-#define AAR_MAGIC_VERSION    $("AARv0000")                             // Defines the version of the archive file format
-#define AAR_FILE_HEADER_SIZE (AAR_MAGIC_VERSION.length + AAR_KEY_SIZE) // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)
+#define AAR_FILE_HEADER_SIZE AAR_KEY_SIZE
+
+// TODO: Use a magic version block
+// #define AAR_MAGIC_VERSION    $("AARv0000")                             // Defines the version of the archive file format
+// #define AAR_FILE_HEADER_SIZE (AAR_MAGIC_VERSION.length + AAR_KEY_SIZE) // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)
 
 #endif // _AAR_H_
