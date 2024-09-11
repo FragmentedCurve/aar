@@ -8,7 +8,7 @@
 
   The minimum requirements to build aar are:
 
-      cc -o aar -D AAR_OS_POSIX build.c contrib/aes256/aes256.c
+      cc -o aar -D AAR_OS_POSIX build.c
 
 
   Supported macro flags are,
@@ -18,6 +18,8 @@
   | AAR_OS_POSIX       |  Build for a POSIX compliate platform.         |
   | AAR_IOBUF          |  Buffer size for IO operations.                |
   | AAR_DEF_BZERO      |  Define macro for bzero instead of strings.h.  |
+  | AAR_CRYPT_LIBTOM   |  Use libtomcrypt for AES.                      |
+  | AAR_CRYPT_AES256   |  Use the slow byte-implementation of AES.      |
   | _AAR_DEBUG_NOCRYPT |  Don't encrypt and decrypt blocks.             |
 
  */
@@ -42,15 +44,20 @@
 #define NSTRINGS_MAIN
 #include "libs/nstrings.h"
 
-#define BACK_TO_TABLES // Use pre-calculated tables for AES
-#include "contrib/aes256/aes256.h"
-
 // aar application files
 #include "aar.h"
 
 #ifndef AAR_IOBUF
 // This should always be aligned with AAR_PADDING
 #define AAR_IOBUF AAR_PADDING(MegaBytes(100))
+#endif
+
+#ifdef AAR_CRYPT_LIBTOM
+#include "crypt_libtom.c"
+#elif AAR_CRYPT_AES256
+#include "crypt_aes256.c"
+#else
+#include "crypt_aes256.c"
 #endif
 
 #ifdef AAR_OS_POSIX
