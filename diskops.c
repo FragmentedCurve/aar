@@ -14,6 +14,18 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+
+file*
+OpenFile(string filename, char* mode)
+{
+	char path[filename.length + 1];
+
+	bzero(path, sizeof(path));
+	memcpy(path, filename.s, filename.length);
+
+	return fopen(path, mode);
+}
+
 /* Call fclose if fp is not null, otherwise return 0. */
 int
 fclose_safe(file* fp)

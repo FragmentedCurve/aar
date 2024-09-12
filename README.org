@@ -33,6 +33,5 @@ cc -o aar -D AAR_OS_POSIX build.c
 
 * Obvious TODOs (that may or may not get done)
 
-- Prevent leaking the key from the process list, `ps -ef`.
+- Prevent leaking the key from the process list, =ps -ef=.
 - Copy-on-write to avoid potentially damaging the archive.
-- Switch the AES implementation to libtomcrypt.
