@@ -423,9 +423,102 @@ DecryptFile(file* fp, aes_key key)
 }
 
 void
-Extract(file* archive_file, size index, aes_key key)
+ArchiveSplit(file* archive_file, size index, aes_key key)
 {
-	// TODO: Implement me.
+	aar_record_header_ok _hdr;
+	if (!SeekRecord(archive_file, index, mem.key.raw)) {
+		Println$("Warning: Record %d doesn't exist.", index);
+		return;
+	}
+
+	if (_hdr = ReadRecord(archive_file, mem.key.raw), !_hdr.ok) {
+		Println$("Record %d is corrupted.", index);
+		return;
+	}
+
+	string desc = $$$(_hdr.value.desc, _hdr.value.desc_length);
+	file* out = OpenFile(desc, "w+");
+	if (!out) {
+		Println$("Failed to extract record %d as '%s'", index, desc);
+		return;
+	}
+
+	Println$("Splitting record %d as %s", index, desc);
+
+	u8 buf[AAR_BLOCK_SIZE];
+	WriteRecord(out, _hdr.value, mem.key.raw);
+	for (size i = 0; i < _hdr.value.block_count + 1; i++) {
+		bzero(buf, AAR_BLOCK_SIZE);
+		(void) fread(buf, sizeof(u8), AAR_BLOCK_SIZE, archive_file);
+		(void) fwrite(buf, sizeof(u8), AAR_BLOCK_SIZE, out);
+		fflush(out);
+	}
+	fclose(out);
+}
+
+void
+ArchiveExtract(file* archive_file, size index, aes_key key)
+{
+	aar_record_header_ok _hdr;
+	if (!SeekRecord(archive_file, index, mem.key.raw)) {
+		Println$("Warning: Record %d doesn't exist.", index);
+		return;
+	}
+
+	if (_hdr = ReadRecord(archive_file, mem.key.raw), !_hdr.ok) {
+		Println$("Record %d is corrupted.", index);
+		return;
+	}
+
+	string desc = $$$(_hdr.value.desc, _hdr.value.desc_length);
+	file* out = OpenFile(desc, "w+");
+	if (!out) {
+		Println$("Failed to extract record %d as '%s'", index, desc);
+		return;
+	}
+
+	Println$("Extracting record %d as %s", index, desc);
+
+	// TODO: Don't copy the record without
+	// decrypting. We're passing over the data
+	// twice...
+	u8 buf[AAR_BLOCK_SIZE];
+	WriteRecord(out, _hdr.value, mem.key.raw);
+	for (size i = 0; i < _hdr.value.block_count + 1; i++) {
+		bzero(buf, AAR_BLOCK_SIZE);
+		(void) fread(buf, sizeof(u8), AAR_BLOCK_SIZE, archive_file);
+		(void) fwrite(buf, sizeof(u8), AAR_BLOCK_SIZE, out);
+		fflush(out);
+	}
+
+	// TODO: This is a waste of time. Just decrypt
+	// data as writing it out.
+	rewind(out);
+	DecryptFile(out, mem.key.raw);
+	fclose(out);
+}
+
+bool
+ValidateRecord(file* archive_file, size index, aes_key key)
+{
+	aar_record_header_ok hdr;
+	static u8 buf[AAR_IOBUF];
+
+	if (!SeekRecord(archive_file, index, key)) {
+		return false;
+	}
+
+	hdr = ReadRecord(archive_file, key);
+	if (!hdr.ok) {
+		return false;
+	}
+
+	for (size i = 0; i < hdr.value.block_count; ) {
+		bzero(buf, AAR_IOBUF);
+		// TOOD: Finish
+	}
+
+	return true;
 }
 
 void
@@ -649,6 +742,8 @@ Main(int argc, string* argv)
 				size x0 = ftell(archive_file) + AAR_DATA_BYTES(hdr);
 				size x1 = FileSize(archive_file);
 
+				Println$("Deleting %d %s", i, $$$(hdr.desc, hdr.desc_length));
+
 				if (x0 == x1) {
 					TruncateFile(archive_file, x1 - record_length);
 				} else {
@@ -668,47 +763,9 @@ Main(int argc, string* argv)
 		}
 	} else if (Equals$("extract", *argv)) {
 		shift(argc, argv);
-
-		aar_record_header_ok hdr;
 		for (size i = 0; i < argc; i++) {
 			size index = Atoi(argv[i]);
-			aar_record_header_ok _hdr;
-			if (!SeekRecord(archive_file, index, mem.key.raw)) {
-				Println$("Warning: Record %d doesn't exist.", index);
-				continue;
-			}
-
-			if (_hdr = ReadRecord(archive_file, mem.key.raw), !_hdr.ok) {
-				Println$("Record %d is corrupted.", index);
-				continue;
-			}
-
-			string desc = $$$(_hdr.value.desc, _hdr.value.desc_length);
-			file* out = OpenFile(desc, "w+");
-			if (!out) {
-				Println$("Failed to extract record %d as '%s'", index, desc);
-				continue;
-			}
-
-			Println$("Extracting record %d as %s", index, desc);
-
-			// TODO: Don't copy the record without
-			// decrypting. We're passing over the data
-			// twice...
-			u8 buf[AAR_BLOCK_SIZE];
-			WriteRecord(out, _hdr.value, mem.key.raw);
-			for (size i = 0; i < _hdr.value.block_count + 1; i++) {
-				bzero(buf, AAR_BLOCK_SIZE);
-				(void) fread(buf, sizeof(u8), AAR_BLOCK_SIZE, archive_file);
-				(void) fwrite(buf, sizeof(u8), AAR_BLOCK_SIZE, out);
-				fflush(out);
-			}
-
-			// TODO: This is a waste of time. Just decrypt
-			// data as writing it out.
-			rewind(out);
-			DecryptFile(out, mem.key.raw);
-			fclose(out);
+			ArchiveExtract(archive_file, index, mem.key.raw);
 		}
 	} else if (Equals$("rename", *argv)) {
 		shift(argc, argv);
@@ -748,9 +805,13 @@ Main(int argc, string* argv)
 		(void) fseek(archive_file, pos, SEEK_SET);
 		WriteRecord(archive_file, new_hdr, mem.key.raw);
 	} else if (Equals$("extract-all", *argv)) {
-		// TODO: Implement extract-all command
+		for (size i = 0; SeekRecord(archive_file, i, mem.key.raw); i++) {
+			ArchiveExtract(archive_file, i, mem.key.raw);
+		}
 	} else if (Equals$("split", *argv)) {
-		// TODO: Implement split command
+		for (size i = 0; SeekRecord(archive_file, i, mem.key.raw); i++) {
+			ArchiveSplit(archive_file, i, mem.key.raw);
+		}
 	} else if (Equals$("validate", *argv)) {
 		// TODO: Implement validate command
 	} else {
