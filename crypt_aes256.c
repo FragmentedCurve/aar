@@ -14,10 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define BACK_TO_TABLES // Use pre-calculated tables for AES
-#include "contrib/aes256/aes256.h"
-#include "contrib/aes256/aes256.c"
-
 void
 EncryptBlocks(void* _dest, size nblocks, aes_key key)
 {

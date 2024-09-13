@@ -33,11 +33,9 @@ CFLAGS+= -O2
 .endif
 
 # Build with libtomcrypt
-.ifdef AAR_CRYPT_LIBTOM
-.ifdef AAR_CRYPT_AES256
+.ifdef AAR_CRYPT_AES256 && AAR_CRYPT_LIBTOM
 .error "You can't mix AAR_CRYPT_AES256 and AAR_CRYPT_LIBTOM."
-.endif
-
+.elifdef AAR_CRYPT_LIBTOM
 CFLAGS+= -I contrib/libtomcrypt/src/headers
 LDADD+= contrib/libtomcrypt/libtomcrypt.a
 ${PROG}: contrib/libtomcrypt/libtomcrypt.a

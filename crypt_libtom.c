@@ -14,14 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-// Ghetto hack to avoid function name conflicts
-#define base64_encode ltc_base64_encode
-#define base64_decode ltc_base64_decode
-
-#include "tomcrypt.h"
-
-#undef base64_encode
-#undef base64_decode
 
 void
 EncryptBlocks(void* _dest, size nblocks, aes_key key)
