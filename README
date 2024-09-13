@@ -1,0 +1,48 @@
+                             _____________
+
+                               AAR README
+
+                              Paco Pascal
+                             _____________
+
+
+                             July 30, 2024
+
+
+AAR is a simple tool for archiving small files with AES
+cryptography. It's intentionally ignorant of the operating system and
+file system. I built it to archive and backup SSH and GnuPG keys outside
+of my traditional system backups.
+
+
+Installation
+============
+
+  On Linux,
+
+  ,----
+  | bmake
+  `----
+
+  On *BSD,
+
+  ,----
+  | make
+  `----
+
+  On another POSIX compliant platform,
+
+  ,----
+  | cc -o aar -D AAR_OS_POSIX build.c
+  `----
+
+
+Usage
+=====
+
+
+Obvious TODOs (that may or may not get done)
+============================================
+
+  - Prevent leaking the key from the process list, `ps -ef'.
+  - Copy-on-write to avoid potentially damaging the archive.

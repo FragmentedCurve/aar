@@ -53,6 +53,15 @@ git-submodules:
 	@git submodule init
 	@git submodule update
 
+README README.md: README.org
+	emacs -Q -batch --eval " \
+		(with-temp-buffer \
+			(insert-file-contents \"README.org\") \
+			(org-mode) \
+			(add-to-list 'org-export-backends 'md) \
+			(setq org-confirm-babel-evaluate nil) \
+			(goto-char (org-babel-find-named-block \"export-readme\")) \
+			(org-babel-execute-src-block))"
 
 .PHONY: distclean clean-contrib git-submodules
 
