@@ -16,7 +16,6 @@
 
 
 /*
-
   This is a unity build file for aar. The source comes with a BSD
   (bmake) makefile which provides support for tracking changes to
   source files and toggling debug builds. If you do not have bmake
@@ -49,9 +48,9 @@
 #include <stdbool.h>
 
 #ifdef AAR_DEF_BZERO
-#define bzero(dest, len) memset((dest), 0, (len))
+#     define bzero(dest, len) memset((dest), 0, (len))
 #else
-#include <strings.h>
+#     include <strings.h>
 #endif
 
 // third party libs
@@ -65,7 +64,7 @@
 
 #ifndef AAR_IOBUF
 // This should always be aligned with AAR_PADDING
-#define AAR_IOBUF AAR_PADDING(MegaBytes(100))
+#     define AAR_IOBUF AAR_PADDING(MegaBytes(100))
 #endif
 
 #ifdef AAR_CRYPT_LIBTOM
@@ -84,7 +83,7 @@
 #endif
 
 #ifdef AAR_OS_POSIX
-#include "os_posix.c"
+#    include "os_posix.c"
 #endif
 
 #include "diskops.c"
