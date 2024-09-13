@@ -545,6 +545,7 @@ Main(int argc, string* argv)
 		} else if (HasPrefix$("--key=", *argv)) {
 			string k = Slice(*argv, $("--key=").length, argv[0].length);
 			if (given_key = Base64DecodeKey(k), !given_key.ok) {
+				Println$("Invalid key.");
 				exit(-1);
 			}
 			memcpy(mem.key.base64, k.s, k.length);
@@ -559,6 +560,10 @@ Main(int argc, string* argv)
 			mem.stable.archive = *argv;
 		} else if (HasPrefix$("--archive=", *argv)) {
 			mem.stable.archive = Slice(*argv, $("--archive=").length, argv[0].length);
+			if (mem.stable.archive.length == 0) {
+				Println$("No archive filename given.");
+				exit(-1);
+			}
 		} else {
 			Println$("Unknown flag '%s'.", *argv);
 			exit(-1);
@@ -595,7 +600,15 @@ Main(int argc, string* argv)
 		Println$("%s", mem.stable.key);
 
 		exit(0);
-	} else if (Equals$("encrypt", *argv)) {
+	}
+
+	// All other commands require a given key
+	if (!given_key.ok) {
+		Println$("A key must be given.");
+		exit(-1);
+	}
+
+	if (Equals$("encrypt", *argv)) {
 		shift(argc, argv);
 
 		if (argc < 1) {
