@@ -492,29 +492,6 @@ ArchiveExtract(file* archive_file, size index, aes_key key)
 	fclose(out);
 }
 
-bool
-ValidateRecord(file* archive_file, size index, aes_key key)
-{
-	aar_record_header_ok hdr;
-	static u8 buf[AAR_IOBUF];
-
-	if (!SeekRecord(archive_file, index, key)) {
-		return false;
-	}
-
-	hdr = ReadRecord(archive_file, key);
-	if (!hdr.ok) {
-		return false;
-	}
-
-	for (size i = 0; i < hdr.value.block_count; ) {
-		bzero(buf, AAR_IOBUF);
-		// TOOD: Finish
-	}
-
-	return true;
-}
-
 void
 Usage(string cmd)
 {
@@ -532,7 +509,6 @@ Usage(string cmd)
 		 "  extract      Extract a single record.\n"
 		 "  extract-all  Extract all records.\n"
 		 "  split        Divide the archive's records into individually encrypted files.\n"
-		 "  validate     Check for file corruption.\n"
 		 "  rename       Change the description.\n"
 		 "  encrypt      Encrypt a file without adding it to an archive.\n"
 		 "  decrypt      Decrypt a file that's independent from an archive.", cmd);
@@ -806,8 +782,6 @@ Main(int argc, string* argv)
 		for (size i = 0; SeekRecord(archive_file, i, mem.key.raw); i++) {
 			ArchiveSplit(archive_file, i, mem.key.raw);
 		}
-	} else if (Equals$("validate", *argv)) {
-		// TODO: Implement validate command
 	} else {
 		Println$("Unknown command: '%s'", *argv);
 		goto error;
