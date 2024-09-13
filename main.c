@@ -31,20 +31,14 @@ struct {
 aar_checksum
 Checksum(aar_checksum state, u8* buf, size buf_len)
 {
-	const u32 poly = 0xEDB88320;
-
-	for (size i = 0; i < buf_len; i++) {
-		state ^= buf[i];
-		for (size bit = 0; bit < 8; bit++) {
-			if (state & 1) {
-				state = (state >> 1) ^ poly;
-			} else {
-				state >>= 1;
-			}
-		}
+	// 32-bit derivative of the BSD checksum.
+	// (Performs better than CRC32 for us.)
+	for (int i = 0; i < buf_len; i++) {
+		state >>= 1;
+		state += (state & 1) << 31;
+		state += buf[i];
 	}
-
-	return ~state;
+	return state;
 }
 
 string

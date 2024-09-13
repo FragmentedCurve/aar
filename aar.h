@@ -47,7 +47,7 @@
 
 typedef u32 aar_checksum;
 #define AAR_CHECKSUM_SIZE   sizeof(aar_checksum)
-#define AAR_CHECKSUM_INIT    -1
+#define AAR_CHECKSUM_INIT    0
 
 #define sizeof_member(type, member) (sizeof(((type){0}).member))
 
