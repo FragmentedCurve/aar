@@ -23,7 +23,7 @@ ${v}=
 
 ${PROG}: git-submodules
 
-CFLAGS+= -std=c99 -pedantic ${AAR_CONF:@cfg@-D${cfg}@}
+CFLAGS+= -std=c99 -pedantic -Wall ${AAR_CONF:@cfg@-D${cfg}@}
 
 # Debug build
 .ifdef _AAR_DEBUG_NOCRYPT
