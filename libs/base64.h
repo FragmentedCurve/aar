@@ -281,8 +281,8 @@ base64_valid(const char* s, size_t n)
 	// The case 'xx=z' will be caught in the loop below.
 	n -= (s[n - 1] == '=') + (s[n - 2] == '=');
 
-	while (--n) {
-		if (__base64_decode(s[n]) == __B64_INVALID || s[n] == '=') {
+	while (n) {
+		if (__base64_decode(s[--n]) == __B64_INVALID || s[n] == '=') {
 			return -1;
 		}
 	}
