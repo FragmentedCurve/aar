@@ -1,9 +1,33 @@
+/*
+ * Copyright (c) 2024 Paco Pascal <me@pacopascal.com>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
 #ifndef _BASE64_H_
 #define _BASE64_H_
+
+// Default to using a lookup table
+#if    !defined _BASE64_TABLE  \
+    && !defined _BASE64_SWITCH \
+    && !defined _BASE64_IFELSE
+#define _BASE64_TABLE
+#endif
 
 // Byte value that represents an invalid base64 character.
 #define __B64_INVALID (0xff)
 
+#ifdef _BASE64_TABLE
 static const unsigned char __base64_encode_table[] = {
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 	'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
@@ -53,10 +77,119 @@ static const unsigned char __base64_decode_table[] = {
 // 0x7f protects from going out-of-bounds.
 #define __base64_decode(i) (__base64_decode_table[0x7f & (i)])
 #define __base64_encode(i) (__base64_encode_table[(i)])
+#endif // _BASE64_TABLE
+
+#ifdef _BASE64_SWITCH
+unsigned char static inline
+__base64_encode(unsigned char x)
+{
+	switch (x) {
+	case  0: case  1: case  2: case  3: case  4: case  5:
+	case  6: case  7: case  8: case  9: case 10: case 11:
+	case 12: case 13: case 14: case 15: case 16: case 17:
+	case 18: case 19: case 20: case 21: case 22: case 23:
+	case 24: case 25:
+		return x + 'A';
+
+	case 26: case 27: case 28: case 29: case 30: case 31:
+	case 32: case 33: case 34: case 35: case 36: case 37:
+	case 38: case 39: case 40: case 41: case 42: case 43:
+	case 44: case 45: case 46: case 47: case 48: case 49:
+	case 50: case 51:
+		return (x - 26) + 'a';
+
+	case 52: case 53: case 54: case 55: case 56:
+	case 57: case 58: case 59: case 60: case 61:
+		return (x - 52) + '0';
+
+	case 62:
+		return '+';
+	case 63:
+		return '/';
+
+	default:
+		return __B64_INVALID;
+	}
+}
+
+unsigned char static inline
+__base64_decode(unsigned char x)
+{
+	switch (x) {
+	case 'A': case 'B': case 'C': case 'D': case 'E':
+	case 'F': case 'G': case 'H': case 'I': case 'J':
+	case 'K': case 'L': case 'M': case 'N': case 'O':
+	case 'P': case 'Q': case 'R': case 'S': case 'T':
+	case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
+		return x - 'A';
+
+	case 'a': case 'b': case 'c': case 'd': case 'e':
+	case 'f': case 'g': case 'h': case 'i': case 'j':
+	case 'k': case 'l': case 'm': case 'n': case 'o':
+	case 'p': case 'q': case 'r': case 's': case 't':
+	case 'u': case 'v': case 'w': case 'x': case 'y': case 'z':
+		return (x + 26) - 'a';
+
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9':
+		return (x + 52) - '0';
+
+	case '+':
+		return 62;
+
+	case '/':
+		return 63;
+
+	case '=':
+		return 0;
+
+	default:
+		return __B64_INVALID;
+	}
+}
+#endif // _BASE64_SWITCH
+
+#ifdef _BASE64_IFELSE
+unsigned char static inline
+__base64_encode(unsigned char x)
+{
+	if (x >= 0 && x <= 25) {
+		return x + 'A';
+	} else if (x >= 26 && x <= 51) {
+		return (x - 26) + 'a';
+	} else if (x >= 52 && x <= 61) {
+		return (x - 52) + '0';
+	} else if (x == 62) {
+		return '+';
+	} else if (x == 63) {
+		return '/';
+	}
+	return __B64_INVALID;
+}
+
+unsigned char static inline
+__base64_decode(unsigned char x)
+{
+	if (x >= 'A' && x <= 'Z') {
+		return x - 'A';
+	} else if (x >= 'a' && x <= 'z') {
+		return (x + 26) - 'a';
+	} else if (x >= '0' && x <= '9') {
+		return (x + 52) - '0';
+	} else if (x == '+') {
+		return 62;
+	} else if (x == '/') {
+		return 63;
+	} else if (x == '=') {
+		return 0;
+	}
+	return __B64_INVALID;
+}
+#endif // _BASE64_IFELSE
 
 /*
- * Returns the exact length an encoded string will be, given the
- * decoded data is n bytes.
+  Returns the exact length an encoded string will be, given the
+  decoded data is n bytes.
  */
 size_t static inline
 base64_encoded_size(size_t n)
@@ -65,8 +198,8 @@ base64_encoded_size(size_t n)
 }
 
 /*
- * Returns the maximum length the decoded data may be, given the
- * encoded string is n bytes.
+  Returns the maximum length the decoded data may be, given the
+  encoded string is n bytes.
  */
 size_t static inline
 base64_decoded_size(size_t n)
@@ -75,12 +208,12 @@ base64_decoded_size(size_t n)
 }
 
 /*
- * Encode the data from _src which is n bytes long.
- *
- * Warning: This function assumes _dst is large enough to hold the
- * encoded data. See base64_encoded_size().
+  Encode the data from _src which is n bytes long.
+
+  Warning: This function assumes _dst is large enough to hold the
+           encoded data. See base64_encoded_size().
  */
-void static
+void static inline
 base64_encode(void* _dst, const void* _src, size_t n)
 {
 	unsigned char* dst = (unsigned char*) _dst;
@@ -111,12 +244,12 @@ base64_encode(void* _dst, const void* _src, size_t n)
 }
 
 /*
- * Decodes a data into _dst from an base64 encoded string in _src.
- *
- * Warning: This function assumes _dst is large enough to hold the
- * decoded data. See base64_decoded_size().
+  Decodes a data into _dst from an base64 encoded string in _src.
+
+  Warning: This function assumes _dst is large enough to hold the
+           decoded data. See base64_decoded_size().
  */
-size_t static
+size_t static inline
 base64_decode(void* _dst, const void* _src, size_t n)
 {
 	unsigned char* dst = (unsigned char*) _dst;
@@ -130,22 +263,30 @@ base64_decode(void* _dst, const void* _src, size_t n)
 	}
 
 	// Branchless checking for trailing '=' characters.
-	return (3 * (n / 4)) - (src[n - 1] == '=') - (src[n - 2] == '=');
+	return (3 * (n >> 2)) - (src[n - 1] == '=') - (src[n - 2] == '=');
 }
 
-
 /*
- * Checks if a string is a valid base64 encoding.
- * Returns 0 when valid and -1 whe invalid.
+  Checks if a string is a valid base64 encoding.
+  Returns 0 when valid and -1 whe invalid.
  */
-int static
+int static inline
 base64_valid(const char* s, size_t n)
 {
-	if (n % 4 != 0)
+	// n % 4 != 0
+	if (n & 3) {
 		return -1;
-	while (n)
-		if (__base64_decode(s[--n]) == __B64_INVALID)
+	}
+
+	// The case 'xx=z' will be caught in the loop below.
+	n -= (s[n - 1] == '=') + (s[n - 2] == '=');
+
+	while (--n) {
+		if (__base64_decode(s[n]) == __B64_INVALID || s[n] == '=') {
 			return -1;
+		}
+	}
+
 	return 0;
 }
 
