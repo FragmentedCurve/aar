@@ -53,13 +53,19 @@ Base64DecodeKey(string s)
 {
 	aes_key_ok result = {0};
 
-	if (base64_valid(s.s, s.length)) {
+	if (s.length != AAR_BASE64_KEY_SIZE) {
 		return result;
 	}
 
-	if (base64_decode(&result.value, s.s, AAR_BASE64_KEY_SIZE) != AAR_KEY_SIZE) {
+	if (base64_decoded_size(s.s, s.length) != AAR_KEY_SIZE) {
 		return result;
 	}
+
+	if (!base64_valid(s.s, s.length)) {
+		return result;
+	}
+
+	base64_decode(&result.value, s.s, s.length);
 
 	result.ok = 1;
 	return result;

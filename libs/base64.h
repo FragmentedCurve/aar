@@ -202,9 +202,22 @@ base64_encoded_size(size_t n)
   encoded string is n bytes.
  */
 static size_t
-base64_decoded_size(size_t n)
+base64_decoded_max(size_t n)
 {
 	return (((int) (n/4.0) + ((n/4.0) > (int) (n/4.0))) * 3);
+}
+
+/*
+  Returns the exact length the decoded data will be, given the
+  encoded string and it's length.
+ */
+static size_t
+base64_decoded_size(const char* s, size_t n)
+{
+	if (n < 4) {
+		return 0;
+	}
+	return 3 * (n >> 2) - (s[n - 1] == '=') - (s[n - 2] == '=');
 }
 
 /*
@@ -262,20 +275,19 @@ base64_decode(void* _dst, const void* _src, size_t n)
 		++dst;
 	}
 
-	// Branchless checking for trailing '=' characters.
-	return (3 * (n >> 2)) - (src[n - 1] == '=') - (src[n - 2] == '=');
+	return base64_decoded_size(src, n);
 }
 
 /*
   Checks if a string is a valid base64 encoding.
-  Returns 0 when valid and -1 whe invalid.
+  Returns 1 when valid and 0 when invalid.
  */
 static int
 base64_valid(const char* s, size_t n)
 {
 	// n % 4 != 0
 	if (n & 3) {
-		return -1;
+		return 0;
 	}
 
 	// The case 'xx=z' will be caught in the loop below.
@@ -283,11 +295,11 @@ base64_valid(const char* s, size_t n)
 
 	while (n) {
 		if (__base64_decode(s[--n]) == __B64_INVALID || s[n] == '=') {
-			return -1;
+			return 0;
 		}
 	}
 
-	return 0;
+	return 1;
 }
 
 #endif // _BASE64_H_
