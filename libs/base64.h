@@ -80,7 +80,7 @@ static const unsigned char __base64_decode_table[] = {
 #endif // _BASE64_TABLE
 
 #ifdef _BASE64_SWITCH
-unsigned char static inline
+static unsigned char
 __base64_encode(unsigned char x)
 {
 	switch (x) {
@@ -112,7 +112,7 @@ __base64_encode(unsigned char x)
 	}
 }
 
-unsigned char static inline
+static unsigned char
 __base64_decode(unsigned char x)
 {
 	switch (x) {
@@ -150,7 +150,7 @@ __base64_decode(unsigned char x)
 #endif // _BASE64_SWITCH
 
 #ifdef _BASE64_IFELSE
-unsigned char static inline
+static unsigned char
 __base64_encode(unsigned char x)
 {
 	if (x >= 0 && x <= 25) {
@@ -167,7 +167,7 @@ __base64_encode(unsigned char x)
 	return __B64_INVALID;
 }
 
-unsigned char static inline
+static unsigned char
 __base64_decode(unsigned char x)
 {
 	if (x >= 'A' && x <= 'Z') {
@@ -191,7 +191,7 @@ __base64_decode(unsigned char x)
   Returns the exact length an encoded string will be, given the
   decoded data is n bytes.
  */
-size_t static inline
+static size_t
 base64_encoded_size(size_t n)
 {
 	return (((int) (n/3.0) + ((n/3.0) > (int) (n/3.0))) * 4);
@@ -201,7 +201,7 @@ base64_encoded_size(size_t n)
   Returns the maximum length the decoded data may be, given the
   encoded string is n bytes.
  */
-size_t static inline
+static size_t
 base64_decoded_size(size_t n)
 {
 	return (((int) (n/4.0) + ((n/4.0) > (int) (n/4.0))) * 3);
@@ -213,7 +213,7 @@ base64_decoded_size(size_t n)
   Warning: This function assumes _dst is large enough to hold the
            encoded data. See base64_encoded_size().
  */
-void static inline
+static void
 base64_encode(void* _dst, const void* _src, size_t n)
 {
 	unsigned char* dst = (unsigned char*) _dst;
@@ -249,7 +249,7 @@ base64_encode(void* _dst, const void* _src, size_t n)
   Warning: This function assumes _dst is large enough to hold the
            decoded data. See base64_decoded_size().
  */
-size_t static inline
+static size_t
 base64_decode(void* _dst, const void* _src, size_t n)
 {
 	unsigned char* dst = (unsigned char*) _dst;
@@ -270,7 +270,7 @@ base64_decode(void* _dst, const void* _src, size_t n)
   Checks if a string is a valid base64 encoding.
   Returns 0 when valid and -1 whe invalid.
  */
-int static inline
+static int
 base64_valid(const char* s, size_t n)
 {
 	// n % 4 != 0
