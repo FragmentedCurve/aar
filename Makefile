@@ -14,6 +14,7 @@
 
 PROG=aar
 SRCS=build.c
+MODULES=contrib/aes256 contrib/libtomcrypt
 
 AAR_CONF= AAR_OS_POSIX AAR_CRYPT_LIBTOM
 
@@ -21,8 +22,7 @@ AAR_CONF= AAR_OS_POSIX AAR_CRYPT_LIBTOM
 ${v}=
 .endfor
 
-${PROG}: git-submodules
-
+${PROG}: ${MODULES}
 CFLAGS+= -std=c99 -pedantic -Wall ${AAR_CONF:@cfg@-D${cfg}@}
 
 # Debug build
@@ -49,13 +49,16 @@ clean-contrib:
 
 distclean: clean clean-contrib
 
-git-submodules:
+${MODULES}:
 	@git submodule init
 	@git submodule update
 
 README README.md: README.org
 	emacs -Q --batch --script readme.el
 
-.PHONY: distclean clean-contrib git-submodules
+test: ${PROG}
+	${MAKE} -C tests
+
+.PHONY: test distclean clean-contrib
 
 .include <bsd.prog.mk>
