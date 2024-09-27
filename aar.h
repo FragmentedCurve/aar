@@ -54,8 +54,8 @@ typedef u32 aar_checksum;
 
 typedef struct {
 	byte data[AAR_KEY_SIZE];
-} aes_key;
-TYPEDEF_OK(aes_key);
+} aar_key;
+TYPEDEF_OK(aar_key);
 
 // Number of encryption passes
 #define AAR_CRYPT_PASSES 1

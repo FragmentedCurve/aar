@@ -23,10 +23,10 @@ TruncateFile(file* fp, size offset)
 	return result;
 }
 
-aes_key_ok
+aar_key_ok
 GenerateKey()
 {
-	aes_key_ok result = {0};
+	aar_key_ok result = {0};
 	file* fp = fopen("/dev/random", "rb");
 
 	if (!fp) {

@@ -15,7 +15,7 @@
  */
 
 void
-EncryptBlocks(void* _dest, size nblocks, aes_key key)
+EncryptBlocks(void* _dest, size nblocks, aar_key key)
 {
 #ifndef _AAR_DEBUG_NOCRYPT
 	aes256_context_t ctx;
@@ -31,7 +31,7 @@ EncryptBlocks(void* _dest, size nblocks, aes_key key)
 }
 
 void
-DecryptBlocks(void* _dest, size nblocks, aes_key key)
+DecryptBlocks(void* _dest, size nblocks, aar_key key)
 {
 #ifndef _AAR_DEBUG_NOCRYPT
 	aes256_context_t ctx;

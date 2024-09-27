@@ -17,8 +17,8 @@
 // Global memory regions
 struct {
 	struct {
-		aes_key raw;                      // 256 bit AES key for encrypting archive.
-		aes_key encrypted[AAR_KEY_SIZE];  // Key in key_raw encrypted with itself.
+		aar_key raw;                      // 256 bit AES key for encrypting archive.
+		aar_key encrypted[AAR_KEY_SIZE];  // Key in key_raw encrypted with itself.
 		byte base64[AAR_BASE64_KEY_SIZE]; // Base64 encoded AES key (It's always 44 bytes long).
 	} key;
 
@@ -42,16 +42,16 @@ Checksum(aar_checksum state, u8* buf, size buf_len)
 }
 
 string
-Base64EncodeKey(char* dest, aes_key k)
+Base64EncodeKey(char* dest, aar_key k)
 {
 	base64_encode(dest, &k, AAR_KEY_SIZE);
 	return $$$(dest, AAR_BASE64_KEY_SIZE);
 }
 
-aes_key_ok
+aar_key_ok
 Base64DecodeKey(string s)
 {
-	aes_key_ok result = {0};
+	aar_key_ok result = {0};
 
 	if (s.length != AAR_BASE64_KEY_SIZE) {
 		return result;
@@ -71,10 +71,10 @@ Base64DecodeKey(string s)
 	return result;
 }
 
-aes_key_ok
-ArchiveValidate(file* fp, aes_key given_key)
+aar_key_ok
+ArchiveValidate(file* fp, aar_key given_key)
 {
-	aes_key_ok archive_key = {0};
+	aar_key_ok archive_key = {0};
 
 	if (fread(&archive_key.value, AAR_KEY_SIZE, 1, fp) != 1) {
 		Println$("Failed to read key.");
@@ -99,11 +99,11 @@ ArchiveOpen(string filename)
 }
 
 file*
-ArchiveCreate(string filename, aes_key key)
+ArchiveCreate(string filename, aar_key key)
 {
 	file* fp;
 	char path[filename.length + 1];
-	aes_key encrypted_key;
+	aar_key encrypted_key;
 	u8 buf[AAR_FILE_HEADER_SIZE];
 
 	bzero(buf, AAR_FILE_HEADER_SIZE);
@@ -154,7 +154,7 @@ NewRecord(file* fp, string desc)
 }
 
 void
-WriteRecord(file* fout, aar_record_header hdr, aes_key key)
+WriteRecord(file* fout, aar_record_header hdr, aar_key key)
 {
 	// We require 2 extra blocks for potentially padding the min
 	// section and the desc section.
@@ -208,7 +208,7 @@ WriteRecord(file* fout, aar_record_header hdr, aes_key key)
 }
 
 void
-IngestFile(file* fin, file* fout, aes_key key)
+IngestFile(file* fin, file* fout, aar_key key)
 {
 	size n;
 	size buf_size = AAR_IOBUF;
@@ -233,7 +233,7 @@ IngestFile(file* fin, file* fout, aes_key key)
 }
 
 aar_record_header_ok
-ReadRecord(file* archive_file, aes_key key)
+ReadRecord(file* archive_file, aar_key key)
 {
 	aar_record_header hdr;
 	aar_record_header_ok result = {0};
@@ -318,7 +318,7 @@ ReadRecord(file* archive_file, aes_key key)
 }
 
 bool
-SeekRecord(file* archive_file, size n, aes_key key)
+SeekRecord(file* archive_file, size n, aar_key key)
 {
 	aar_record_header_ok hdr;
 
@@ -343,7 +343,7 @@ SeekRecord(file* archive_file, size n, aes_key key)
   safe.
 */
 void
-EncryptFile(file* fp, aes_key key)
+EncryptFile(file* fp, aar_key key)
 {
 	int n;
 	size buf_size = AAR_IOBUF;
@@ -382,7 +382,7 @@ EncryptFile(file* fp, aes_key key)
   safe.
 */
 void
-DecryptFile(file* fp, aes_key key)
+DecryptFile(file* fp, aar_key key)
 {
 	// TODO: Ensure this doesn't need better error checking.
 	int n;
@@ -423,7 +423,7 @@ DecryptFile(file* fp, aes_key key)
 }
 
 void
-ArchiveSplit(file* archive_file, size index, aes_key key)
+ArchiveSplit(file* archive_file, size index, aar_key key)
 {
 	aar_record_header_ok _hdr;
 	if (!SeekRecord(archive_file, index, mem.key.raw)) {
@@ -457,7 +457,7 @@ ArchiveSplit(file* archive_file, size index, aes_key key)
 }
 
 void
-ArchiveExtract(file* archive_file, size index, aes_key key)
+ArchiveExtract(file* archive_file, size index, aar_key key)
 {
 	aar_record_header_ok _hdr;
 	if (!SeekRecord(archive_file, index, mem.key.raw)) {
@@ -525,7 +525,7 @@ Usage(string cmd)
 int
 Main(int argc, string* argv)
 {
-	aes_key_ok given_key = {0};
+	aar_key_ok given_key = {0};
 
 	if (argc <= 1) {
 		Usage(argv[0]);
