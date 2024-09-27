@@ -29,13 +29,13 @@
 
   Supported macro flags are,
 
-  | MACRO FLAG         | DESCRIPTION                                    | 
+  | MACRO FLAG         | DESCRIPTION                                    |
   |--------------------+------------------------------------------------|
-  | AAR_OS_POSIX       |  Build for a POSIX compliate platform.         |
-  | AAR_IOBUF          |  Buffer size for IO operations.                |
-  | AAR_DEF_BZERO      |  Define macro for bzero instead of strings.h.  |
-  | AAR_CRYPT_LIBTOM   |  Use libtomcrypt for AES insteadof aes256.     |
-  | _AAR_DEBUG_NOCRYPT |  Don't encrypt and decrypt blocks.             |
+  | AAR_OS_POSIX       | Build for a POSIX compliant platform.          |
+  | AAR_IOBUF          | Buffer size for IO operations.                 |
+  | AAR_DEF_BZERO      | Define macro for bzero instead of strings.h.   |
+  | AAR_CRYPT_LIBTOM   | Use libtomcrypt for AES insteadof aes256.      |
+  | _AAR_DEBUG_NOCRYPT | Don't encrypt and decrypt blocks.              |
 */
 
 
