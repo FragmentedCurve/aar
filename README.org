@@ -3,31 +3,6 @@
 #+DATE: July 30, 2024
 #+OPTIONS: toc:nil num:nil
 
-#+NAME: export-readme
-#+BEGIN_SRC elisp :results none :exports none :eval no-export
-  (with-temp-buffer (org-mode)
-                    (insert-file-contents "README.org")
-                    (org-export-to-file 'ascii "README"))
-
-  (with-temp-buffer (org-mode)
-                    (insert-file-contents "README.org")
-                    (org-export-to-file (org-export-create-backend
-                                         :parent 'md
-                                         :transcoders `((headline . ,(lambda (obj content info)
-                                                                       (format "%s %s\n\n%s"
-                                                                               (make-string
-                                                                                (+ 1 (org-export-get-relative-level obj info))
-                                                                                (string-to-char "#"))
-                                                                               (org-export-data (org-element-property :title obj) info)
-                                                                               (if content content ""))))
-                                                        (template . ,(lambda (content info)
-                                                                       (let ((title (plist-get info :title)))
-                                                                         (if title
-                                                                             (format "# %s\n\n%s" (car title) content)
-                                                                           content))))))
-                        "README.md"))
-#+END_SRC
-
 AAR is a simple tool for archiving small files with AES
 cryptography. It's intentionally ignorant of the operating system and
 file system. I built it to archive and backup SSH and GnuPG keys
