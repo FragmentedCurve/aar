@@ -14,28 +14,34 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+
 /*
+  An aar archive is made from concatenated encrypted aar files. An
+  encrypted aar file has the following structure:
+  
+  Block    /--- 16 Bytes ---\
+           +----------------+ <- Record data
+           |                |
+         //////////////////////
+           |        ........|
+           +----------------+ <- Record description
+           |                |
+         //////////////////////
+           |     ...........|
+           +----------------+ <- Record header
+           |$$$$$$$$$$$$$$$$|
+           |DDDDDDDDdddddddd|
+           |############....|
+           +----------------+ <- EOF
 
-  TODO: Update this diagram.
 
-    BLock    /--- 16 Bytes ---\
-             +----------------+ <- AES key
-    0        |                |
-    1        |                |
-             +----------------+ <- Record header
-    2        |                |
-    3        |        ........|
-             +----------------+ <- Record description
-    4        |                |
-           //////////////////////
-    Rn       |     ...........|
-             +----------------+ <- Record data
-    D0       |                |
-    D1       |                |
-           //////////////////////
-    Dn       |       .........|
-             +----------------+
+    Key | Meaning
+    ----+--------------------
+    $   | Nonce byte.
+    #   | Checksum byte.
+    .   | Padding
 */
+
 
 #ifndef _AAR_H_
 #define _AAR_H_
@@ -47,7 +53,7 @@
 
 typedef u32 aar_checksum;
 #define AAR_CHECKSUM_SIZE   sizeof(aar_checksum)
-#define AAR_CHECKSUM_INIT    0
+#define AAR_CHECKSUM_INIT   0
 
 #define sizeof_member(type, member) (sizeof(((type){0}).member))
 
@@ -62,21 +68,15 @@ TYPEDEF_OK(aar_key);
 
 // AAR File Format
 typedef struct {
-	u64 block_count;        // Quantity of data blocks
-	u64 block_offset;       // Byte difference between encrypted blocks and decrypted data
-	u64 desc_length;        // Byte length of desc data. Must be <= AAR_MAX_PATH
-	u8  desc[AAR_DESC_MAX]; // File path/description
-} aar_record_header;
-TYPEDEF_OK(aar_record_header);
-
-// The absolute minimum byte length a record header could possibly be on disk.
-#define AAR_RECORD_MIN							\
-	(sizeof_member(aar_record_header, block_count)			\
-		+ sizeof_member(aar_record_header, block_offset)	\
-		+ sizeof_member(aar_record_header, desc_length))
-
-// The absolute maxiumum byte length a record header could possibly be.
-#define AAR_RECORD_MAX (AAR_RECORD_MIN + sizeof_member(aar_record_header, desc))
+	u8           nonce[AAR_BLOCK_SIZE];
+	u64          data_length;           // Byte length of plaintext data
+	u64          desc_length;           // Byte length of desc data. Must be <= AAR_MAX_PATH
+	aar_checksum chk_hdr;               // Checksum of nonce, data_length, and desc_length
+	aar_checksum chk_desc;              // Checksum of plaintext desc
+	aar_checksum chk_data;              // Checksum of plaintext data
+	u8           desc[AAR_DESC_MAX];    // Description of data (also used as the file path/name)
+} aar_hdr;
+TYPEDEF_OK(aar_hdr);
 
 // Byte length aligned to AAR_BLOCK_SIZE
 #define AAR_PADDING(nbytes)						\
@@ -85,26 +85,32 @@ TYPEDEF_OK(aar_record_header);
 		* (AAR_BLOCK_SIZE - ((nbytes) % AAR_BLOCK_SIZE)))
 #define AAR_BLOCKS(nbytes)  (AAR_PADDING(nbytes) / AAR_BLOCK_SIZE)
 
+// The absolute minimum byte length a record header could possibly be on disk.
+#define AAR_HDR_MIN							\
+	AAR_PADDING(sizeof_member(aar_hdr, nonce)			\
+		+ sizeof_member(aar_hdr, data_length)			\
+		+ sizeof_member(aar_hdr, desc_length)			\
+		+ sizeof_member(aar_hdr, chk_hdr)			\
+		+ sizeof_member(aar_hdr, chk_data)			\
+		+ sizeof_member(aar_hdr, chk_desc))
+
+// The absolute maxiumum byte length a record header could possibly be.
+#define AAR_HDR_MAX (AAR_HDR_MIN + AAR_PADDING(sizeof_member(aar_hdr, desc)))
+
 // The full byte length of a record's header that is written to disk.
 #define AAR_HDR_BYTES(hdr)						\
-	(AAR_PADDING(AAR_RECORD_MIN + AAR_CHECKSUM_SIZE)		\
+	(AAR_PADDING(AAR_HDR_MIN)					\
 		+ (((hdr).desc_length > 0)				\
-			? AAR_PADDING((hdr).desc_length + AAR_CHECKSUM_SIZE) \
+			? AAR_PADDING((hdr).desc_length)		\
 			: 0))
 
 // The full block length of a record's header that is written to disk.
 #define AAR_HDR_BLOCKS(hdr) (AAR_HDR_BYTES(hdr) / AAR_BLOCK_SIZE)
 
 // The full byte length of a record's data that's written to disk.
-#define AAR_DATA_BYTES(hdr) (((hdr).block_count * AAR_BLOCK_SIZE) + AAR_PADDING(AAR_CHECKSUM_SIZE))
+#define AAR_DATA_BYTES(hdr) (AAR_PADDING((hdr).data_length))
 
 // The entire record's byte length.
 #define AAR_REC_BYTES(hdr)  (AAR_HDR_BYTES(hdr) + AAR_DATA_BYTES(hdr))
-
-#define AAR_FILE_HEADER_SIZE AAR_KEY_SIZE
-
-// TODO: Use a magic version block
-// #define AAR_MAGIC_VERSION    $("AARv0000")                             // Defines the version of the archive file format
-// #define AAR_FILE_HEADER_SIZE (AAR_MAGIC_VERSION.length + AAR_KEY_SIZE) // (sizeof(AAR_MAGIC_VERSION) + AAR_KEY_SIZE)
 
 #endif // _AAR_H_

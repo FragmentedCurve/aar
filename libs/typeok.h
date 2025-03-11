@@ -58,5 +58,6 @@ TYPEDEF_OK(size);
 
 // aar extensions
 typedef FILE file;
+TYPEDEF_OK(string);
 
 #endif // _TYPEOK_H_

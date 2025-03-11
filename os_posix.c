@@ -23,25 +23,18 @@ TruncateFile(file* fp, size offset)
 	return result;
 }
 
-aar_key_ok
-GenerateKey()
+bool
+RandomBytes(u8* buf, size n)
 {
-	aar_key_ok result = {0};
+	bool result = true;
 	file* fp = fopen("/dev/random", "rb");
 
 	if (!fp) {
-		goto error;
+		result = false;
+	} else if (fread(buf, sizeof(u8), n, fp) < n) {
+		result = false;
 	}
 
-	if (fread(&result.value, sizeof(byte), AAR_KEY_SIZE, fp) < AAR_KEY_SIZE) {
-		goto error;
-	}
-
-	result.ok = 1;
-	return result;
-
-error:
-	Println$("Failed to read from /dev/random.");
-	fclose(fp);
+	fclose_safe(fp);
 	return result;
 }

@@ -16,14 +16,15 @@ PROG=aar
 SRCS=build.c
 MODULES=contrib/aes256 contrib/libtomcrypt
 
-AAR_CONF= AAR_OS_POSIX AAR_CRYPT_LIBTOM
+AAR_CONF= AAR_OS_POSIX AAR_CRYPT_LIBTOM # _AAR_DEBUG_NOCRYPT
 
 .for v in ${AAR_CONF}
 ${v}=
 .endfor
 
-${PROG}: ${MODULES}
-CFLAGS+= -std=c99 -pedantic -Wall ${AAR_CONF:@cfg@-D${cfg}@}
+CFLAGS+= -std=c99 -pedantic -Wall ${AAR_CONF:@cfg@-D${cfg}@} \
+	-Wno-gnu-zero-variadic-macro-arguments \
+	-Wno-dollar-in-identifier-extension
 
 # Debug build
 .ifdef _AAR_DEBUG_NOCRYPT
@@ -31,6 +32,13 @@ CFLAGS+= -O0 -ggdb -pg
 .else
 CFLAGS+= -O2
 .endif
+
+# TODO: Automate configuring these vars
+BSDMAKE?=${MAKE}
+GNUMAKE?=gmake
+EMACS?=emacs
+
+${PROG}: ${MODULES}
 
 # Build with libtomcrypt
 .ifdef AAR_CRYPT_AES256 && AAR_CRYPT_LIBTOM
@@ -40,12 +48,12 @@ CFLAGS+= -I contrib/libtomcrypt/src/headers
 LDADD+= contrib/libtomcrypt/libtomcrypt.a
 ${PROG}: contrib/libtomcrypt/libtomcrypt.a
 contrib/libtomcrypt/libtomcrypt.a:
-	make -C contrib/libtomcrypt/ CFLAGS="-D LTC_MINIMAL"
+	${GNUMAKE} -C contrib/libtomcrypt/ CFLAGS="-D LTC_MINIMAL -fPIC"
 .endif
 
 clean-contrib:
-	make -C contrib/libtomcrypt/ clean
-	make -C contrib/aes256/ clean
+	${GNUMAKE} -C contrib/libtomcrypt/ clean
+	${GNUMAKE} -C contrib/aes256/ clean
 
 distclean: clean clean-contrib
 
@@ -54,10 +62,10 @@ ${MODULES}:
 	@git submodule update
 
 README README.md: README.org
-	emacs -Q --batch --script readme.el
+	${EMACS} -Q --batch --script readme.el
 
 test: ${PROG}
-	${MAKE} -C tests
+	${BSDMAKE} -C tests
 
 .PHONY: test distclean clean-contrib
 

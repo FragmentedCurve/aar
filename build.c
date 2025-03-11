@@ -19,8 +19,7 @@
   This is a unity build file for aar. The source comes with a BSD
   (bmake) makefile which provides support for tracking changes to
   source files and toggling debug builds. If you do not have bmake
-  installed, you may easily build aar by compiling this file and
-  contrib/aes256/aes256.c.
+  installed, you may easily build aar by compiling this file.
 
   The minimum requirements to build aar are:
 
@@ -54,10 +53,10 @@
 #endif
 
 // third party libs
-#include "libs/typeok.h"
 #include "libs/base64.h"
 #define NSTRINGS_MAIN
 #include "libs/nstrings.h"
+#include "libs/typeok.h"
 
 // aar application files
 #include "aar.h"
@@ -81,6 +80,9 @@
 #    include "contrib/aes256/aes256.c"
 #    include "crypt_aes256.c"
 #endif
+
+// AAR function declarations
+int fclose_safe(file* fp);
 
 #ifdef AAR_OS_POSIX
 #    include "os_posix.c"
