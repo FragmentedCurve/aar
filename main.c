@@ -494,8 +494,8 @@ Usage(string cmd)
 	Println$("Usage:  %s [OPTIONS] COMMAND\n\n"
 
 		 "Options:\n"
-		 "  -k  --key=KEY       AES key encoded with base64.\n"
-		 "  -a  --archive=FILE  AAR archive filename.\n\n"
+		 "  -k  --key=KEY                AES key encoded with base64.\n"
+		 "  -a  --archive=FILE           AAR archive filename.\n\n"
 
 		 "Archive Commands:\n"
 		 "  new                          Generate a random AES-256 bit key.\n"
